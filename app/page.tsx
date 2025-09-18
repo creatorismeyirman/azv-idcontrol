@@ -4,11 +4,10 @@ import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { UserCard } from "@/components/verification/user-card"
 import { ApprovalModal } from "@/components/modals/approval-modal"
-import { financialUsers, mvdUsers, systemUsers, SystemUser } from "@/lib/mock-data"
+import { financialUsers, mvdUsers, SystemUser } from "@/lib/mock-data"
 import { VerificationUser, VerificationFilters } from "@/types/verification"
-import { HiUsers, HiCheckCircle, HiXCircle, HiClock, HiLockClosed } from "react-icons/hi2"
+import { HiUsers } from "react-icons/hi2"
 import { HiSearch, HiLogout } from "react-icons/hi"
-import { Shield } from "@/components/icons"
 import Image from "next/image"
 
 export default function VerificationPage() {
@@ -20,7 +19,6 @@ export default function VerificationPage() {
   const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false)
   const [currentUser, setCurrentUser] = useState<SystemUser | null>(null)
   const [users, setUsers] = useState<VerificationUser[]>([])
-  const [allUsers, setAllUsers] = useState<VerificationUser[]>([])
 
   // Initialize user and data on component mount
   useEffect(() => {
@@ -30,9 +28,7 @@ export default function VerificationPage() {
       const user = JSON.parse(savedUser)
       setCurrentUser(user)
       
-      // Initialize all users data
-      const allUsersData = [...financialUsers, ...mvdUsers]
-      setAllUsers(allUsersData)
+      // Initialize user data based on role
       
       // Set users based on role - each department sees their own users
       if (user.role === 'financial') {
@@ -298,7 +294,7 @@ export default function VerificationPage() {
                 ].map(({ value, label, count }) => (
                   <button
                     key={value}
-                    onClick={() => setFilters(prev => ({ ...prev, status: value as any }))}
+                    onClick={() => setFilters(prev => ({ ...prev, status: value as 'pending' | 'approved' | 'rejected' }))}
                     className={`flex-shrink-0 py-3 px-5 rounded-full text-sm font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-opacity-20 snap-center ${
                       filters.status === value
                         ? "bg-[#191919] text-white transform scale-[0.98] shadow-sm"
@@ -332,7 +328,7 @@ export default function VerificationPage() {
                 ].map(({ value, label, count }) => (
                   <button
                     key={value}
-                    onClick={() => setFilters(prev => ({ ...prev, status: value as any }))}
+                    onClick={() => setFilters(prev => ({ ...prev, status: value as 'pending' | 'approved' | 'rejected' }))}
                     className={`flex-1 py-3 px-4 lg:px-6 rounded-full text-sm lg:text-base font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-opacity-20 ${
                       filters.status === value
                         ? "bg-[#191919] text-white transform scale-[0.98] shadow-sm"

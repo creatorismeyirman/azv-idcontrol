@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { VerificationUser } from "@/types/verification"
 import { 
@@ -10,16 +10,14 @@ import {
   HiClock, 
   HiUser, 
   HiPhone, 
-  HiCreditCard, 
-  HiDocumentText, 
-  HiStar,
-  HiChatBubbleLeftRight,
+  HiCreditCard,
   HiCheckCircle,
   HiXCircle,
   HiChevronDown
 } from "react-icons/hi2"
 import { HiX } from "react-icons/hi"
-import { HiLockClosed, HiChevronLeft, HiChevronRight } from "react-icons/hi2"
+import { HiChevronLeft, HiChevronRight } from "react-icons/hi2"
+import Image from "next/image"
 
 interface UserCardProps {
   user: VerificationUser
@@ -210,9 +208,11 @@ export function UserCard({
                     className="aspect-[4/3] bg-[#F8F8F8] rounded-lg overflow-hidden border border-[#E5E5E5] cursor-pointer hover:border-[#191919] transition-all duration-200"
                     onClick={() => handleImageClick(index)}
                   >
-                    <img
+                    <Image
                       src={user.documents[doc.key]}
                       alt={doc.label}
+                      width={200}
+                      height={150}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                       onError={(e) => {
                         const target = e.target as HTMLImageElement
@@ -322,9 +322,11 @@ export function UserCard({
                     {doc.label}
                   </h4>
                   <div className="aspect-[4/3] bg-[#F8F8F8] rounded-lg sm:rounded-xl overflow-hidden border border-[#E5E5E5]">
-                    <img
+                    <Image
                       src={user.documents[doc.key]}
                       alt={doc.label}
+                      width={400}
+                      height={300}
                       className="w-full h-full object-cover"
                       onError={(e) => {
                         const target = e.target as HTMLImageElement

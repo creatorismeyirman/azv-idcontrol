@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { X, CheckCircle, AlertCircle } from "@/components/icons"
+import { X, CheckCircle } from "@/components/icons"
 import { VerificationUser } from "@/types/verification"
 
 interface ApprovalModalProps {
