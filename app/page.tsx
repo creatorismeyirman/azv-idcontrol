@@ -29,6 +29,7 @@ export default function VerificationPage() {
   })
   const [selectedUserForApproval, setSelectedUserForApproval] = useState<Application | null>(null)
   const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false)
+  const [allApplications, setAllApplications] = useState<Application[]>([])
   const [applications, setApplications] = useState<Application[]>([])
   const [isLoadingApplications, setIsLoadingApplications] = useState(false)
   const [error, setError] = useState("")
@@ -52,30 +53,31 @@ export default function VerificationPage() {
       if (user.role === UserRole.FINANCIER) {
         switch (filters.status) {
           case 'pending':
-            response = await apiClient.getFinancierPending(filters.search)
+            response = await apiClient.getFinancierPending()
             break
           case 'approved':
-            response = await apiClient.getFinancierApproved(filters.search)
+            response = await apiClient.getFinancierApproved()
             break
           case 'rejected':
-            response = await apiClient.getFinancierRejected(filters.search)
+            response = await apiClient.getFinancierRejected()
             break
         }
       } else if (user.role === UserRole.MVD) {
         switch (filters.status) {
           case 'pending':
-            response = await apiClient.getMvdPending(filters.search)
+            response = await apiClient.getMvdPending()
             break
           case 'approved':
-            response = await apiClient.getMvdApproved(filters.search)
+            response = await apiClient.getMvdApproved()
             break
           case 'rejected':
-            response = await apiClient.getMvdRejected(filters.search)
+            response = await apiClient.getMvdRejected()
             break
         }
       }
 
       if (response?.statusCode === 200 && response.data) {
+        setAllApplications(response.data.applications)
         setApplications(response.data.applications)
       } else {
         setError(response?.error || "Ошибка загрузки заявок")
@@ -86,14 +88,29 @@ export default function VerificationPage() {
     } finally {
       setIsLoadingApplications(false)
     }
-  }, [user, filters.status, filters.search])
+  }, [user, filters.status])
 
-  // Load applications when user or filters change
+  // Load applications when user or status changes
   useEffect(() => {
     if (user && isAuthenticated) {
       loadApplications()
     }
-  }, [user, isAuthenticated, loadApplications, filters.status, filters.search])
+  }, [user, isAuthenticated, loadApplications, filters.status])
+
+  // Filter applications locally based on search
+  useEffect(() => {
+    if (!filters.search.trim()) {
+      setApplications(allApplications)
+    } else {
+      const filtered = allApplications.filter(app => 
+        app.first_name.toLowerCase().includes(filters.search.toLowerCase()) ||
+        app.last_name.toLowerCase().includes(filters.search.toLowerCase()) ||
+        app.phone_number.includes(filters.search) ||
+        app.iin.includes(filters.search)
+      )
+      setApplications(filtered)
+    }
+  }, [allApplications, filters.search])
 
   // Block page scroll when modal is open
   useEffect(() => {
