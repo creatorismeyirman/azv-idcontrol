@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { VerificationUser } from "@/types/verification"
+import { Application } from "@/types/api"
 import { 
   HiEye, 
   HiCheck, 
@@ -20,14 +20,14 @@ import { HiChevronLeft, HiChevronRight } from "react-icons/hi2"
 import Image from "next/image"
 
 interface UserCardProps {
-  user: VerificationUser
-  onApprove: (user: VerificationUser) => void
-  onReject: (userId: string, reason: string) => void
+  application: Application
+  onApprove: (application: Application) => void
+  onReject: (applicationId: number, reason: string) => void
   showActions?: boolean
 }
 
 export function UserCard({ 
-  user, 
+  application, 
   onApprove, 
   onReject, 
   showActions = true
@@ -55,8 +55,17 @@ export function UserCard({
     }
   }, [showDocuments, showRejectModal, showCarousel])
 
+  // Determine status based on application data
+  const getApplicationStatus = (): 'pending' | 'approved' | 'rejected' => {
+    if (application.approved_at) return 'approved'
+    // For now, we'll assume if not approved, it's pending
+    // In real implementation, you might have a status field
+    return 'pending'
+  }
+
   const getStatusIcon = () => {
-    switch (user.status) {
+    const status = getApplicationStatus()
+    switch (status) {
       case 'approved':
         return <HiCheckCircle className="w-5 h-5 text-green-500" />
       case 'rejected':
@@ -67,7 +76,8 @@ export function UserCard({
   }
 
   const getStatusText = () => {
-    switch (user.status) {
+    const status = getApplicationStatus()
+    switch (status) {
       case 'approved':
         return 'Одобрено'
       case 'rejected':
@@ -78,7 +88,8 @@ export function UserCard({
   }
 
   const getStatusColor = () => {
-    switch (user.status) {
+    const status = getApplicationStatus()
+    switch (status) {
       case 'approved':
         return 'text-green-600 bg-green-50'
       case 'rejected':
@@ -99,12 +110,12 @@ export function UserCard({
   }
 
   const handleApprove = () => {
-    onApprove(user)
+    onApprove(application)
   }
 
   const handleReject = () => {
     if (rejectionReason.trim()) {
-      onReject(user.id, rejectionReason)
+      onReject(application.application_id, rejectionReason)
       setShowRejectModal(false)
       setRejectionReason("")
     }
@@ -124,12 +135,89 @@ export function UserCard({
   }
 
   const documentTypes = [
-    { key: 'idFront', label: 'Удостоверение личности (лицевая сторона)' },
-    { key: 'idBack', label: 'Удостоверение личности (оборотная сторона)' },
-    { key: 'driverLicense', label: 'Водительское удостоверение' },
-    { key: 'selfie', label: 'Селфи (портрет)' },
-    { key: 'selfieWithLicense', label: 'Селфи с водительским удостоверением' }
+    { key: 'id_card_front_url', label: 'Удостоверение личности (лицевая сторона)' },
+    { key: 'id_card_back_url', label: 'Удостоверение личности (оборотная сторона)' },
+    { key: 'drivers_license_url', label: 'Водительское удостоверение' },
+    { key: 'selfie_url', label: 'Селфи (портрет)' },
+    { key: 'selfie_with_license_url', label: 'Селфи с водительским удостоверением' }
   ] as const
+
+  // Function to handle image URLs - convert relative paths to absolute URLs
+  const getImageUrl = (url: string | null | undefined): string => {
+    if (!url) return '/api/placeholder/200/150'
+    
+    // If it's already an absolute URL, return as is
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url
+    }
+    
+    // If it's a relative path starting with uploads/, make it absolute
+    if (url.startsWith('uploads/') || url.startsWith('/uploads/')) {
+      const cleanUrl = url.startsWith('/') ? url : `/${url}`
+      return `https://api.azvmotors.kz${cleanUrl}`
+    }
+    
+    // If it starts with /, return as is (assuming it's a valid path)
+    if (url.startsWith('/')) {
+      return url
+    }
+    
+    // If it's a relative path without uploads/, try to construct a valid URL
+    if (url.includes('/') && !url.startsWith('http')) {
+      return `https://api.azvmotors.kz/${url}`
+    }
+    
+    // For any other case, return placeholder
+    return '/api/placeholder/200/150'
+  }
+
+  // Function to check if URL is external (needs regular img tag instead of Next.js Image)
+  const isExternalUrl = (url: string): boolean => {
+    return url.startsWith('http://') || url.startsWith('https://')
+  }
+
+  // Component for conditional image rendering
+  const ConditionalImage = ({ 
+    src, 
+    alt, 
+    width, 
+    height, 
+    className, 
+    onError 
+  }: {
+    src: string | null
+    alt: string
+    width: number
+    height: number
+    className: string
+    onError: (e: React.SyntheticEvent<HTMLImageElement, Event>) => void
+  }) => {
+    const imageUrl = getImageUrl(src)
+    
+    if (isExternalUrl(imageUrl)) {
+      return (
+        <img
+          src={imageUrl}
+          alt={alt}
+          width={width}
+          height={height}
+          className={className}
+          onError={onError}
+        />
+      )
+    }
+    
+    return (
+      <Image
+        src={imageUrl}
+        alt={alt}
+        width={width}
+        height={height}
+        className={className}
+        onError={onError}
+      />
+    )
+  }
 
   return (
     <>
@@ -146,8 +234,8 @@ export function UserCard({
             <div className="flex-1 min-w-0">
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
                 <h3 className="text-xl sm:text-2xl font-bold text-[#191919] leading-tight">
-                  <span className="block sm:inline text-[#191919]">{user.firstName}</span>
-                  <span className="block sm:inline sm:ml-1 text-[#191919]">{user.lastName}</span>
+                  <span className="block sm:inline text-[#191919]">{application.first_name}</span>
+                  <span className="block sm:inline sm:ml-1 text-[#191919]">{application.last_name}</span>
                 </h3>
                 <div className="flex items-center gap-2">
                   {getStatusIcon()}
@@ -157,12 +245,10 @@ export function UserCard({
                 </div>
               </div>
               
-              {/* Online status */}
-              {user.lastOnline && (
-                <p className="text-xs sm:text-sm text-[#666666] mb-2">
-                  {formatLastOnline(user.lastOnline)}
-                </p>
-              )}
+              {/* Application date */}
+              <p className="text-xs sm:text-sm text-[#666666] mb-2">
+                Подано: {new Date(application.created_at).toLocaleDateString('ru-RU')}
+              </p>
               
             </div>
             
@@ -172,18 +258,18 @@ export function UserCard({
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6">
             <div className="flex items-center gap-2">
               <HiPhone className="w-4 h-4 text-[#666666] flex-shrink-0" />
-              <span className="text-xs sm:text-sm text-[#191919] truncate">{user.phone}</span>
+              <span className="text-xs sm:text-sm text-[#191919] truncate">{application.phone_number}</span>
             </div>
             <div className="flex items-center gap-2">
               <HiCreditCard className="w-4 h-4 text-[#666666] flex-shrink-0" />
               <span className="text-xs sm:text-sm text-[#191919] truncate">
-                {user.iin ? `ИИН: ${user.iin}` : `Паспорт: ${user.passportNumber}`}
+                ИИН: {application.iin}
               </span>
             </div>
             <div className="flex items-center gap-2 sm:col-span-2 lg:col-span-1">
               <HiClock className="w-4 h-4 text-[#666666] flex-shrink-0" />
               <span className="text-xs sm:text-sm text-[#191919]">
-                Подано: {new Date(user.submittedAt).toLocaleDateString('ru-RU')}
+                Обновлено: {new Date(application.updated_at).toLocaleDateString('ru-RU')}
               </span>
             </div>
           </div>
@@ -208,8 +294,8 @@ export function UserCard({
                     className="aspect-[4/3] bg-[#F8F8F8] rounded-lg overflow-hidden border border-[#E5E5E5] cursor-pointer hover:border-[#191919] transition-all duration-200"
                     onClick={() => handleImageClick(index)}
                   >
-                    <Image
-                      src={user.documents[doc.key]}
+                    <ConditionalImage
+                      src={application.documents[doc.key]}
                       alt={doc.label}
                       width={200}
                       height={150}
@@ -229,41 +315,30 @@ export function UserCard({
           </div>
 
           {/* Status Information */}
-          {user.accessClass && (
+          {application.auto_class && application.auto_class.length > 0 && (
             <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
               <div className="flex items-center gap-2">
                 <HiCheckCircle className="w-4 h-4 text-green-600" />
                 <span className="text-sm font-medium text-green-800">
-                  Класс допуска: {user.accessClass}
+                  Класс допуска: {application.auto_class.join(', ')}
                 </span>
               </div>
             </div>
           )}
 
-          {user.rejectionReason && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
-              <div className="flex items-center gap-2">
-                <HiXCircle className="w-4 h-4 text-red-600" />
-                <span className="text-sm font-medium text-red-800">
-                  Причина отклонения: {user.rejectionReason}
-                </span>
-              </div>
-            </div>
-          )}
-
-          {user.mvdComment && (
+          {application.approved_at && (
             <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
               <div className="flex items-center gap-2">
                 <HiCheckCircle className="w-4 h-4 text-green-600" />
                 <span className="text-sm font-medium text-green-800">
-                  Комментарий МВД: {user.mvdComment}
+                  Одобрено: {new Date(application.approved_at).toLocaleDateString('ru-RU')}
                 </span>
               </div>
             </div>
           )}
 
           {/* Actions */}
-          {showActions && user.status === 'pending' && (
+          {showActions && getApplicationStatus() === 'pending' && (
             <div className="space-y-3 sm:space-y-4 pt-3 sm:pt-4 border-t border-[#E5E5E5]">
               <div className="flex flex-col sm:flex-row gap-2 sm:gap-2">
                 <Button
@@ -299,8 +374,8 @@ export function UserCard({
                 </div>
                 <div className="min-w-0">
                   <h3 className="text-base sm:text-lg font-semibold text-[#191919] leading-tight">
-                    <span className="block sm:inline text-[#191919]">{user.firstName}</span>
-                    <span className="block sm:inline sm:ml-1 text-[#191919]">{user.lastName}</span>
+                    <span className="block sm:inline text-[#191919]">{application.first_name}</span>
+                    <span className="block sm:inline sm:ml-1 text-[#191919]">{application.last_name}</span>
                   </h3>
                   <p className="text-xs sm:text-sm text-[#666666]">
                     Просмотр документов
@@ -322,8 +397,8 @@ export function UserCard({
                     {doc.label}
                   </h4>
                   <div className="aspect-[4/3] bg-[#F8F8F8] rounded-lg sm:rounded-xl overflow-hidden border border-[#E5E5E5]">
-                    <Image
-                      src={user.documents[doc.key]}
+                    <ConditionalImage
+                      src={application.documents[doc.key]}
                       alt={doc.label}
                       width={400}
                       height={300}
@@ -415,7 +490,7 @@ export function UserCard({
             {/* Image Container */}
             <div className="relative">
               <img
-                src={user.documents[documentTypes[currentImageIndex]?.key]}
+                src={getImageUrl(application.documents[documentTypes[currentImageIndex]?.key])}
                 alt={documentTypes[currentImageIndex]?.label}
                 className="w-full h-[50vh] sm:h-[60vh] object-contain bg-[#F8F8F8]"
                 onError={(e) => {
@@ -452,9 +527,11 @@ export function UserCard({
                         : "border-[#E5E5E5] hover:border-[#191919]/50"
                     }`}
                   >
-                    <img
-                      src={user.documents[doc.key]}
+                    <ConditionalImage
+                      src={application.documents[doc.key]}
                       alt={doc.label}
+                      width={80}
+                      height={80}
                       className="w-full h-full object-cover"
                       onError={(e) => {
                         const target = e.target as HTMLImageElement

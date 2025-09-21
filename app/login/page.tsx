@@ -1,52 +1,109 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, Suspense } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Eye, EyeOff, LogIn, User, Shield, Lock } from "@/components/icons"
+import { LogIn, User, Shield, Phone, MessageSquare } from "@/components/icons"
 import Image from "next/image"
-import { systemUsers, SystemUser } from "@/lib/mock-data"
+import { useAuth } from "@/contexts/AuthContext"
+import { PhoneInput } from "@/components/ui/PhoneInput"
+import { OTPInput } from "@/components/ui/OtpInput"
 
-export default function LoginPage() {
-  const [formData, setFormData] = useState({
-    username: "",
-    password: ""
-  })
-  const [showPassword, setShowPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
+function LoginForm() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const { login, sendSms, isLoading, isAuthenticated } = useAuth()
+  
+  const [activeStep, setActiveStep] = useState(0)
+  const [phone, setPhone] = useState("")
+  const [otpCode, setOtpCode] = useState("")
   const [error, setError] = useState("")
+  const [isSendingSms, setIsSendingSms] = useState(false)
+  
+  // Check for access denied message
+  const accessDenied = searchParams.get('message') === 'access_denied'
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.push('/')
+    }
+  }, [isAuthenticated, router])
+
+  const isPhoneValid = phone.replace(/\D/g, "").length === 10
+  const isOtpValid = otpCode.length === 4
+
+  const stepText = [
+    {
+      title: "Введите номер телефона",
+      description: "Мы отправим вам код подтверждения"
+    },
+    {
+      title: "Введите код",
+      description: `Код отправлен на номер +7 ${phone.replace(/\D/g, "").replace(/(\d{3})(\d{3})(\d{2})(\d{2})/, "($1) $2 - $3 - $4")}`
+    }
+  ]
+
+  const handlePhoneSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
+    if (!isPhoneValid) return
+
     setError("")
-    
-    // В реальном приложении здесь будет API вызов
-    console.log('Login attempt:', formData)
-    
-    // Симуляция загрузки
-    setTimeout(() => {
-      // Проверяем учетные данные
-      const user = systemUsers.find((u: SystemUser) => u.username === formData.username && u.password === formData.password)
+    setIsSendingSms(true)
+
+    try {
+      const phoneNumber = "7" + phone.replace(/\D/g, "")
+      const success = await sendSms(phoneNumber)
       
-      if (user) {
-        // Сохраняем пользователя в localStorage
-        localStorage.setItem('currentUser', JSON.stringify(user))
-        // Перенаправление на главную страницу верификации
-        window.location.href = '/'
+      if (success) {
+        setActiveStep(1)
       } else {
-        setError('Неверные учетные данные')
-        setIsLoading(false)
+        setError("Ошибка отправки SMS. Попробуйте еще раз.")
       }
-    }, 1000)
+    } catch (error) {
+      setError("Произошла ошибка. Попробуйте еще раз.")
+    } finally {
+      setIsSendingSms(false)
+    }
   }
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
-    if (error) setError("")
+  const handleOtpSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!isOtpValid) return
+
+    setError("")
+
+    try {
+      const phoneNumber = "7" + phone.replace(/\D/g, "")
+      const success = await login(phoneNumber, otpCode)
+      
+      if (success) {
+        router.push('/')
+      } else {
+        setError("Неверный код. Попробуйте еще раз.")
+      }
+    } catch (error) {
+      setError("Произошла ошибка. Попробуйте еще раз.")
+    }
   }
 
-  const handleDemoLogin = (username: string, password: string) => {
-    setFormData({ username, password })
+  const handleResendSms = async () => {
+    try {
+      const phoneNumber = "7" + phone.replace(/\D/g, "")
+      await sendSms(phoneNumber)
+    } catch (error) {
+      setError("Ошибка повторной отправки SMS")
+    }
+  }
+
+  const handleBack = () => {
+    if (activeStep === 0) {
+      router.push('/')
+    } else {
+      setActiveStep(0)
+      setOtpCode("")
+      setError("")
+    }
   }
 
   return (
@@ -97,164 +154,120 @@ export default function LoginPage() {
           <div className="w-full">
             <div className="mb-8">
               <h2 className="text-3xl font-semibold text-white mb-3">
-                Вход в систему
+                {stepText[activeStep].title}
               </h2>
               <p className="text-lg text-white/70">
-                Войдите в панель управления верификацией
+                {stepText[activeStep].description}
               </p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="space-y-5">
-                {/* Username Input */}
-                <div>
-                  <label className="block text-sm font-medium text-white/80 mb-3">
-                    Имя пользователя
-                  </label>
-                  <div className="flex items-center gap-3 w-full bg-[#292929] rounded-xl h-14 text-white border border-white/10 hover:border-white/20 transition-colors">
-                    <div className="p-4 pl-6">
-                      <User className="w-5 h-5 text-white/60" />
-                    </div>
-                    <div className="h-8 w-[1px] bg-white/10"></div>
-                    <input
-                      className="w-full outline-none bg-transparent p-4 text-base text-white placeholder:text-white/30"
-                      placeholder="Введите имя пользователя"
-                      value={formData.username}
-                      onChange={(e) => handleInputChange('username', e.target.value)}
-                      required
+            {/* Access Denied Message */}
+            {accessDenied && (
+              <div className="mb-6 bg-red-500/10 border border-red-500/20 rounded-lg p-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs font-bold">!</span>
+                  </div>
+                  <div>
+                    <p className="text-red-400 font-medium">Доступ ограничен</p>
+                    <p className="text-red-300/80 text-sm mt-1">
+                      У вас нет прав для доступа к системе. Доступ разрешен только для финансистов и сотрудников МВД.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeStep === 0 ? (
+              <form onSubmit={handlePhoneSubmit} className="space-y-6">
+                <div className="space-y-5">
+                  {/* Phone Input */}
+                  <div>
+                    <label className="block text-sm font-medium text-white/80 mb-3">
+                      Номер телефона
+                    </label>
+                    <PhoneInput 
+                      onPhoneChange={setPhone}
+                      disabled={isLoading || isSendingSms}
                     />
                   </div>
                 </div>
 
-                {/* Password Input */}
-                <div>
-                  <label className="block text-sm font-medium text-white/80 mb-3">
-                    Пароль
-                  </label>
-                  <div className="flex items-center gap-3 w-full bg-[#292929] rounded-xl h-14 text-white border border-white/10 hover:border-white/20 transition-colors">
-                    <div className="p-4 pl-6">
-                      <Lock className="w-5 h-5 text-white/60" />
-                    </div>
-                    <div className="h-8 w-[1px] bg-white/10"></div>
-                    <input
-                      className="w-full outline-none bg-transparent p-4 text-base text-white placeholder:text-white/30"
-                      type={showPassword ? "text" : "password"}
-                      placeholder="Введите пароль"
-                      value={formData.password}
-                      onChange={(e) => handleInputChange('password', e.target.value)}
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="p-4 pr-6 text-white/60 hover:text-white transition-colors"
-                    >
-                      {showPassword ? (
-                        <EyeOff className="w-5 h-5" />
-                      ) : (
-                        <Eye className="w-5 h-5" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Error Message */}
-              {error && (
-                <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
-                  <p className="text-red-400 text-sm">{error}</p>
-                </div>
-              )}
-
-              {/* Remember Me & Forgot Password */}
-              <div className="flex items-center justify-between">
-                <label className="flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="w-4 h-4 text-white bg-[#292929] border-white/20 rounded focus:ring-white/50 focus:ring-2"
-                  />
-                  <span className="ml-3 text-sm text-white/70">
-                    Запомнить меня
-                  </span>
-                </label>
-                <button
-                  type="button"
-                  className="text-sm text-white/70 hover:text-white hover:underline transition-colors"
-                >
-                  Забыли пароль?
-                </button>
-              </div>
-
-              {/* Submit Button */}
-              <Button
-                type="submit"
-                className="w-full bg-white text-[#191919] hover:bg-white/90 font-medium h-14 rounded-xl text-base transition-all duration-200 shadow-lg hover:shadow-xl"
-                disabled={isLoading || !formData.username || !formData.password}
-              >
-                {isLoading ? (
-                  <div className="flex items-center gap-2">
-                    <div className="w-5 h-5 border-2 border-[#191919] border-t-transparent rounded-full animate-spin" />
-                    Вход...
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <LogIn className="w-5 h-5" />
-                    Войти
+                {/* Error Message */}
+                {error && (
+                  <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
+                    <p className="text-red-400 text-sm">{error}</p>
                   </div>
                 )}
-              </Button>
-            </form>
 
-            {/* Demo Credentials */}
-            <div className="mt-8">
-              <div className="bg-white/5 rounded-xl p-6 border border-white/10">
-                <h3 className="text-sm font-medium text-white mb-4 flex items-center gap-2">
-                  <User className="w-4 h-4" />
-                  Демо-доступ:
-                </h3>
-                <div className="grid grid-cols-1 gap-3">
-                  <button
-                    onClick={() => handleDemoLogin('fin_user', 'fin123')}
-                    className="flex items-center justify-between p-4 bg-[#292929] rounded-lg hover:bg-[#333333] transition-colors group"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-5 h-5 bg-white rounded flex items-center justify-center overflow-hidden">
-                        <Image 
-                          src="/logo-nbg.png" 
-                          alt="AZV Motors Logo" 
-                          width={20} 
-                          height={20} 
-                          className="w-full h-full object-contain"
-                        />
-                      </div>
-                      <div className="text-left">
-                        <div className="text-sm font-medium text-white">Финансовый отдел</div>
-                        <div className="text-xs text-white/60">fin_user / fin123</div>
-                      </div>
+                {/* Submit Button */}
+                <Button
+                  type="submit"
+                  className="w-full bg-white text-[#191919] hover:bg-white/90 font-medium h-14 rounded-xl text-base transition-all duration-200 shadow-lg hover:shadow-xl"
+                  disabled={!isPhoneValid || isLoading || isSendingSms}
+                >
+                  {isSendingSms ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-5 h-5 border-2 border-[#191919] border-t-transparent rounded-full animate-spin" />
+                      Отправка...
                     </div>
-                    <div className="text-xs text-white/40 group-hover:text-white/60">
-                      Нажмите
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <Phone className="w-5 h-5" />
+                      Отправить код
                     </div>
-                  </button>
-                  
-                  <button
-                    onClick={() => handleDemoLogin('mvd_user', 'mvd123')}
-                    className="flex items-center justify-between p-4 bg-[#292929] rounded-lg hover:bg-[#333333] transition-colors group"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Shield className="w-5 h-5 text-green-400" />
-                      <div className="text-left">
-                        <div className="text-sm font-medium text-white">МВД</div>
-                        <div className="text-xs text-white/60">mvd_user / mvd123</div>
-                      </div>
-                    </div>
-                    <div className="text-xs text-white/40 group-hover:text-white/60">
-                      Нажмите
-                    </div>
-                  </button>
+                  )}
+                </Button>
+              </form>
+            ) : (
+              <form onSubmit={handleOtpSubmit} className="space-y-6">
+                <div className="space-y-5">
+                  {/* OTP Input */}
+                  <div>
+                    <OTPInput
+                      onCodeChange={setOtpCode}
+                      onResend={handleResendSms}
+                      isLoading={isLoading}
+                    />
+                  </div>
                 </div>
-              </div>
-            </div>
+
+                {/* Error Message */}
+                {error && (
+                  <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
+                    <p className="text-red-400 text-sm">{error}</p>
+                  </div>
+                )}
+
+                {/* Back Button */}
+                <button
+                  type="button"
+                  onClick={handleBack}
+                  className="w-full text-white/70 hover:text-white text-sm underline transition-colors"
+                >
+                  Изменить номер телефона
+                </button>
+
+                {/* Submit Button */}
+                <Button
+                  type="submit"
+                  className="w-full bg-white text-[#191919] hover:bg-white/90 font-medium h-14 rounded-xl text-base transition-all duration-200 shadow-lg hover:shadow-xl"
+                  disabled={!isOtpValid || isLoading}
+                >
+                  {isLoading ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-5 h-5 border-2 border-[#191919] border-t-transparent rounded-full animate-spin" />
+                      Проверка...
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <LogIn className="w-5 h-5" />
+                      Войти
+                    </div>
+                  )}
+                </Button>
+              </form>
+            )}
           </div>
         </div>
       </div>
@@ -284,174 +297,134 @@ export default function LoginPage() {
         <div className="px-6 flex flex-col justify-between h-full mt-[5%] text-white">
           <section>
             <h2 className="text-[28px] font-medium mb-2">
-              Вход в систему
+              {stepText[activeStep].title}
             </h2>
             <p className="text-[18px] text-white/70 mb-8">
-              Войдите в панель управления верификацией документов
+              {stepText[activeStep].description}
             </p>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="space-y-4">
-                {/* Username Input */}
-                <div>
-                  <label className="block text-sm font-medium text-white/80 mb-2">
-                    Имя пользователя
-                  </label>
-                  <div className="flex items-center gap-2 w-full bg-[#292929] rounded-[20px] h-[60px] text-white border border-white/10">
-                    <div className="p-4 pl-6">
-                      <User className="w-5 h-5 text-white/60" />
-                    </div>
-                    <div className="h-full w-[1px] bg-white/10"></div>
-                    <input
-                      className="w-full outline-none bg-transparent p-4 text-[16px] text-white placeholder:text-white/30"
-                      placeholder="Введите имя пользователя"
-                      value={formData.username}
-                      onChange={(e) => handleInputChange('username', e.target.value)}
-                      required
+            {/* Access Denied Message */}
+            {accessDenied && (
+              <div className="mb-6 bg-red-500/10 border border-red-500/20 rounded-lg p-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs font-bold">!</span>
+                  </div>
+                  <div>
+                    <p className="text-red-400 font-medium">Доступ ограничен</p>
+                    <p className="text-red-300/80 text-sm mt-1">
+                      У вас нет прав для доступа к системе. Доступ разрешен только для финансистов и сотрудников МВД.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeStep === 0 ? (
+              <form onSubmit={handlePhoneSubmit} className="space-y-6">
+                <div className="space-y-4">
+                  {/* Phone Input */}
+                  <div>
+                    <label className="block text-sm font-medium text-white/80 mb-2">
+                      Номер телефона
+                    </label>
+                    <PhoneInput 
+                      onPhoneChange={setPhone}
+                      disabled={isLoading || isSendingSms}
                     />
                   </div>
                 </div>
 
-                {/* Password Input */}
-                <div>
-                  <label className="block text-sm font-medium text-white/80 mb-2">
-                    Пароль
-                  </label>
-                  <div className="flex items-center gap-2 w-full bg-[#292929] rounded-[20px] h-[60px] text-white border border-white/10">
-                    <div className="p-4 pl-6">
-                      <Lock className="w-5 h-5 text-white/60" />
-                    </div>
-                    <div className="h-full w-[1px] bg-white/10"></div>
-                    <input
-                      className="w-full outline-none bg-transparent p-4 text-[16px] text-white placeholder:text-white/30"
-                      type={showPassword ? "text" : "password"}
-                      placeholder="Введите пароль"
-                      value={formData.password}
-                      onChange={(e) => handleInputChange('password', e.target.value)}
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="p-4 pr-6 text-white/60 hover:text-white transition-colors"
-                    >
-                      {showPassword ? (
-                        <EyeOff className="w-5 h-5" />
-                      ) : (
-                        <Eye className="w-5 h-5" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Error Message */}
-              {error && (
-                <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
-                  <p className="text-red-400 text-sm">{error}</p>
-                </div>
-              )}
-
-              {/* Remember Me */}
-              <div className="flex items-center justify-between">
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    className="w-4 h-4 text-white bg-[#292929] border-white/20 rounded focus:ring-white/50 focus:ring-2"
-                  />
-                  <span className="ml-2 text-sm text-white/70">
-                    Запомнить меня
-                  </span>
-                </label>
-                <button
-                  type="button"
-                  className="text-sm text-white/70 hover:text-white hover:underline transition-colors"
-                >
-                  Забыли пароль?
-                </button>
-              </div>
-
-              {/* Submit Button */}
-              <Button
-                type="submit"
-                className="w-full bg-white text-[#191919] hover:bg-white/90 font-medium h-[60px] rounded-[20px] text-[16px] transition-all duration-200"
-                disabled={isLoading || !formData.username || !formData.password}
-              >
-                {isLoading ? (
-                  <div className="flex items-center gap-2">
-                    <div className="w-5 h-5 border-2 border-[#191919] border-t-transparent rounded-full animate-spin" />
-                    Вход...
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <LogIn className="w-5 h-5" />
-                    Войти
+                {/* Error Message */}
+                {error && (
+                  <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
+                    <p className="text-red-400 text-sm">{error}</p>
                   </div>
                 )}
-              </Button>
-            </form>
-          </section>
 
-          {/* Demo Credentials */}
-          <section className="mt-8 space-y-4">
-            <div className="bg-white/5 rounded-[20px] p-6 border border-white/10">
-              <h3 className="text-sm font-medium text-white mb-4 flex items-center gap-2">
-                <User className="w-4 h-4" />
-                Демо-доступ:
-              </h3>
-              <div className="space-y-3">
-                <button
-                  onClick={() => handleDemoLogin('fin_user', 'fin123')}
-                  className="w-full flex items-center justify-between p-3 bg-[#292929] rounded-[12px] hover:bg-[#333333] transition-colors group"
+                {/* Submit Button */}
+                <Button
+                  type="submit"
+                  className="w-full bg-white text-[#191919] hover:bg-white/90 font-medium h-[60px] rounded-[20px] text-[16px] transition-all duration-200"
+                  disabled={!isPhoneValid || isLoading || isSendingSms}
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="w-5 h-5 bg-white rounded flex items-center justify-center overflow-hidden">
-                      <Image 
-                        src="/logo-nbg.png" 
-                        alt="AZV Motors Logo" 
-                        width={20} 
-                        height={20} 
-                        className="w-full h-full object-contain"
-                      />
+                  {isSendingSms ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-5 h-5 border-2 border-[#191919] border-t-transparent rounded-full animate-spin" />
+                      Отправка...
                     </div>
-                    <div className="text-left">
-                      <div className="text-sm font-medium text-white">Финансовый отдел</div>
-                      <div className="text-xs text-white/60">fin_user / fin123</div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <Phone className="w-5 h-5" />
+                      Отправить код
                     </div>
+                  )}
+                </Button>
+              </form>
+            ) : (
+              <form onSubmit={handleOtpSubmit} className="space-y-6">
+                <div className="space-y-4">
+                  {/* OTP Input */}
+                  <div>
+                    <OTPInput
+                      onCodeChange={setOtpCode}
+                      onResend={handleResendSms}
+                      isLoading={isLoading}
+                    />
                   </div>
-                  <div className="text-xs text-white/40 group-hover:text-white/60">
-                    Нажмите
+                </div>
+
+                {/* Error Message */}
+                {error && (
+                  <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
+                    <p className="text-red-400 text-sm">{error}</p>
                   </div>
-                </button>
-                
+                )}
+
+                {/* Back Button */}
                 <button
-                  onClick={() => handleDemoLogin('mvd_user', 'mvd123')}
-                  className="w-full flex items-center justify-between p-3 bg-[#292929] rounded-[12px] hover:bg-[#333333] transition-colors group"
+                  type="button"
+                  onClick={handleBack}
+                  className="w-full text-white/70 hover:text-white text-sm underline transition-colors"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="w-5 h-5 bg-white rounded flex items-center justify-center overflow-hidden">
-                      <Image 
-                        src="/logo-nbg.png" 
-                        alt="AZV Motors Logo" 
-                        width={20} 
-                        height={20} 
-                        className="w-full h-full object-contain"
-                      />
-                    </div>
-                    <div className="text-left">
-                      <div className="text-sm font-medium text-white">МВД</div>
-                      <div className="text-xs text-white/60">mvd_user / mvd123</div>
-                    </div>
-                  </div>
-                  <div className="text-xs text-white/40 group-hover:text-white/60">
-                    Нажмите
-                  </div>
+                  Изменить номер телефона
                 </button>
-              </div>
-            </div>
+
+                {/* Submit Button */}
+                <Button
+                  type="submit"
+                  className="w-full bg-white text-[#191919] hover:bg-white/90 font-medium h-[60px] rounded-[20px] text-[16px] transition-all duration-200"
+                  disabled={!isOtpValid || isLoading}
+                >
+                  {isLoading ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-5 h-5 border-2 border-[#191919] border-t-transparent rounded-full animate-spin" />
+                      Проверка...
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <LogIn className="w-5 h-5" />
+                      Войти
+                    </div>
+                  )}
+                </Button>
+              </form>
+            )}
           </section>
         </div>
       </div>
     </article>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#191919] flex items-center justify-center">
+        <div className="text-white text-lg">Загрузка...</div>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   )
 }

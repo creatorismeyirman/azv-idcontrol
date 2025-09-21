@@ -3,20 +3,20 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { X, CheckCircle } from "@/components/icons"
-import { VerificationUser } from "@/types/verification"
+import { Application, UserRole } from "@/types/api"
 
 interface ApprovalModalProps {
   isOpen: boolean
   onClose: () => void
-  user: VerificationUser | null
-  userRole: 'financial' | 'mvd'
-  onApprove: (userId: string, accessClass?: 'A' | 'AB' | 'ABC', comment?: string) => void
+  application: Application | null
+  userRole: UserRole
+  onApprove: (applicationId: number, accessClass?: 'A' | 'AB' | 'ABC', comment?: string) => void
 }
 
 export function ApprovalModal({ 
   isOpen, 
   onClose, 
-  user, 
+  application, 
   userRole, 
   onApprove 
 }: ApprovalModalProps) {
@@ -24,17 +24,17 @@ export function ApprovalModal({
   const [mvdComment, setMvdComment] = useState("")
   const [isApproving, setIsApproving] = useState(false)
 
-  if (!isOpen || !user) return null
+  if (!isOpen || !application) return null
 
   const handleApprove = async () => {
-    if (userRole === 'financial' && !selectedAccessClass) return
+    if (userRole === UserRole.FINANCIER && !selectedAccessClass) return
     
     setIsApproving(true)
     try {
-      if (userRole === 'financial') {
-        await onApprove(user.id, selectedAccessClass!)
+      if (userRole === UserRole.FINANCIER) {
+        await onApprove(application.application_id, selectedAccessClass!)
       } else {
-        await onApprove(user.id, undefined, mvdComment)
+        await onApprove(application.application_id, undefined, mvdComment)
       }
       handleClose()
     } finally {
@@ -56,9 +56,9 @@ export function ApprovalModal({
         <div className="flex items-center justify-between p-6 border-b border-gray-200 flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-              userRole === 'financial' ? 'bg-blue-100' : 'bg-green-100'
+              userRole === UserRole.FINANCIER ? 'bg-blue-100' : 'bg-green-100'
             }`}>
-              {userRole === 'financial' ? (
+              {userRole === UserRole.FINANCIER ? (
                 <CheckCircle className="w-5 h-5 text-blue-600" />
               ) : (
                 <CheckCircle className="w-5 h-5 text-green-600" />
@@ -66,10 +66,10 @@ export function ApprovalModal({
             </div>
             <div>
               <h2 className="text-xl font-semibold text-gray-900">
-                {userRole === 'financial' ? 'Одобрить заявку' : 'Одобрить заявку'}
+                {userRole === UserRole.FINANCIER ? 'Одобрить заявку' : 'Одобрить заявку'}
               </h2>
               <p className="text-sm text-gray-600">
-                {userRole === 'financial' 
+                {userRole === UserRole.FINANCIER 
                   ? 'Выберите класс доступа для пользователя' 
                   : 'Добавьте комментарий (необязательно)'
                 }
@@ -89,22 +89,22 @@ export function ApprovalModal({
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
               <span className="text-lg font-semibold text-gray-600">
-                {user.firstName[0]}{user.lastName[0]}
+                {application.first_name[0]}{application.last_name[0]}
               </span>
             </div>
             <div>
               <h3 className="text-lg font-semibold text-gray-900">
-                {user.firstName} {user.lastName}
+                {application.first_name} {application.last_name}
               </h3>
-              <p className="text-sm text-gray-600">{user.phone}</p>
-              <p className="text-sm text-gray-500">ИИН: {user.iin}</p>
+              <p className="text-sm text-gray-600">{application.phone_number}</p>
+              <p className="text-sm text-gray-500">ИИН: {application.iin}</p>
             </div>
           </div>
         </div>
 
         {/* Content */}
         <div className="p-6 space-y-6 overflow-y-auto flex-1">
-          {userRole === 'financial' ? (
+          {userRole === UserRole.FINANCIER ? (
             /* Financial Department - Access Class Selection */
             <div>
               <h4 className="text-lg font-medium text-gray-900 mb-4">
@@ -176,14 +176,14 @@ export function ApprovalModal({
             onClick={handleApprove}
             disabled={
               isApproving || 
-              (userRole === 'financial' && !selectedAccessClass)
+              (userRole === UserRole.FINANCIER && !selectedAccessClass)
             }
             className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white border-green-600 hover:border-green-700"
             style={{ 
-              backgroundColor: isApproving || (userRole === 'financial' && !selectedAccessClass) 
+              backgroundColor: isApproving || (userRole === UserRole.FINANCIER && !selectedAccessClass) 
                 ? '#9ca3af' 
                 : '#16a34a', 
-              borderColor: isApproving || (userRole === 'financial' && !selectedAccessClass)
+              borderColor: isApproving || (userRole === UserRole.FINANCIER && !selectedAccessClass)
                 ? '#9ca3af'
                 : '#16a34a',
               color: 'white'
@@ -194,7 +194,7 @@ export function ApprovalModal({
             ) : (
               <CheckCircle className="w-4 h-4" />
             )}
-            {userRole === 'financial' ? 'Одобрить' : 'Одобрить'}
+            {userRole === UserRole.FINANCIER ? 'Одобрить' : 'Одобрить'}
           </Button>
         </div>
       </div>

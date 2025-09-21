@@ -1,48 +1,99 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { UserCard } from "@/components/verification/user-card"
 import { ApprovalModal } from "@/components/modals/approval-modal"
-import { financialUsers, mvdUsers, SystemUser } from "@/lib/mock-data"
-import { VerificationUser, VerificationFilters } from "@/types/verification"
+import { useAuth } from "@/contexts/AuthContext"
+import { Application, UserRole } from "@/types/api"
 import { HiUsers } from "react-icons/hi2"
 import { HiSearch, HiLogout } from "react-icons/hi"
 import Image from "next/image"
+import apiClient from "@/lib/api"
+
+type ApplicationStatus = 'pending' | 'approved' | 'rejected'
+
+interface ApplicationFilters {
+  status: ApplicationStatus
+  search: string
+}
 
 export default function VerificationPage() {
-  const [filters, setFilters] = useState<VerificationFilters>({
+  const router = useRouter()
+  const { user, isLoading, isAuthenticated, logout } = useAuth()
+  
+  const [filters, setFilters] = useState<ApplicationFilters>({
     status: 'pending',
     search: ''
   })
-  const [selectedUserForApproval, setSelectedUserForApproval] = useState<VerificationUser | null>(null)
+  const [selectedUserForApproval, setSelectedUserForApproval] = useState<Application | null>(null)
   const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false)
-  const [currentUser, setCurrentUser] = useState<SystemUser | null>(null)
-  const [users, setUsers] = useState<VerificationUser[]>([])
+  const [applications, setApplications] = useState<Application[]>([])
+  const [isLoadingApplications, setIsLoadingApplications] = useState(false)
+  const [error, setError] = useState("")
 
-  // Initialize user and data on component mount
+  // Redirect to login if not authenticated
   useEffect(() => {
-    // Check if user is logged in (in real app, this would be from localStorage/session)
-    const savedUser = localStorage.getItem('currentUser')
-    if (savedUser) {
-      const user = JSON.parse(savedUser)
-      setCurrentUser(user)
-      
-      // Initialize user data based on role
-      
-      // Set users based on role - each department sees their own users
-      if (user.role === 'financial') {
-        // Financial department sees financial users
-        setUsers(financialUsers.filter((u: VerificationUser) => u.status === filters.status))
-      } else if (user.role === 'mvd') {
-        // MVD sees MVD users
-        setUsers(mvdUsers.filter((u: VerificationUser) => u.status === filters.status))
-      }
-    } else {
-      // Redirect to login if no user
-      window.location.href = '/login'
+    if (!isLoading && !isAuthenticated) {
+      router.push('/login')
     }
-  }, [filters.status])
+  }, [isLoading, isAuthenticated, router])
+
+  // Load applications when user or filters change
+  useEffect(() => {
+    if (user && isAuthenticated) {
+      loadApplications()
+    }
+  }, [user, filters.status, filters.search])
+
+  const loadApplications = async () => {
+    if (!user) return
+
+    setIsLoadingApplications(true)
+    setError("")
+
+    try {
+      let response
+      
+      if (user.role === UserRole.FINANCIER) {
+        switch (filters.status) {
+          case 'pending':
+            response = await apiClient.getFinancierPending(filters.search)
+            break
+          case 'approved':
+            response = await apiClient.getFinancierApproved(filters.search)
+            break
+          case 'rejected':
+            response = await apiClient.getFinancierRejected(filters.search)
+            break
+        }
+      } else if (user.role === UserRole.MVD) {
+        switch (filters.status) {
+          case 'pending':
+            response = await apiClient.getMvdPending(filters.search)
+            break
+          case 'approved':
+            response = await apiClient.getMvdApproved(filters.search)
+            break
+          case 'rejected':
+            response = await apiClient.getMvdRejected(filters.search)
+            break
+        }
+      }
+
+      if (response?.statusCode === 200 && response.data) {
+        setApplications(response.data.applications)
+      } else {
+        setError(response?.error || "Ошибка загрузки заявок")
+      }
+    } catch (error) {
+      console.error('Error loading applications:', error)
+      setError("Произошла ошибка при загрузке заявок")
+    } finally {
+      setIsLoadingApplications(false)
+    }
+  }
 
   // Block page scroll when modal is open
   useEffect(() => {
@@ -58,160 +109,102 @@ export default function VerificationPage() {
     }
   }, [isApprovalModalOpen])
 
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = !filters.search || 
-      user.firstName.toLowerCase().includes(filters.search.toLowerCase()) ||
-      user.lastName.toLowerCase().includes(filters.search.toLowerCase()) ||
-      user.phone.includes(filters.search) ||
-      user.iin.includes(filters.search) ||
-      user.passportNumber.includes(filters.search)
-    
-    return matchesSearch
-  })
-
-  // Функция для подсчета пользователей по статусу
-  const getUsersCount = (status: 'pending' | 'approved' | 'rejected') => {
-    if (currentUser?.role === 'financial') {
-      return financialUsers.filter((u: VerificationUser) => u.status === status).length
-    } else if (currentUser?.role === 'mvd') {
-      return mvdUsers.filter((u: VerificationUser) => u.status === status).length
-    }
-    return 0
-  }
-
-  // Обновляем список пользователей при изменении фильтра статуса
-  useEffect(() => {
-    if (currentUser) {
-      if (currentUser.role === 'financial') {
-        // Финансовый отдел видит финансовых пользователей
-        const filteredFinancialUsers = financialUsers.filter((u: VerificationUser) => u.status === filters.status)
-        setUsers(filteredFinancialUsers)
-      } else if (currentUser.role === 'mvd') {
-        // МВД видит МВД пользователей
-        const filteredMvdUsers = mvdUsers.filter((u: VerificationUser) => u.status === filters.status)
-        setUsers(filteredMvdUsers)
-      }
-    }
-  }, [filters.status, currentUser])
-
-  const handleLogout = () => {
-    localStorage.removeItem('currentUser')
-    window.location.href = '/login'
-  }
-
-  const handleApprove = (user: VerificationUser) => {
-    setSelectedUserForApproval(user)
+  const handleApprove = (application: Application) => {
+    setSelectedUserForApproval(application)
     setIsApprovalModalOpen(true)
   }
 
-  const handleApproveUser = async (userId: string, accessClass?: 'A' | 'AB' | 'ABC', comment?: string) => {
-    // В реальном приложении здесь будет API вызов
-    console.log('Approving user:', userId, 'with access class:', accessClass, 'comment:', comment)
-    
-    // Обновляем статус пользователя в соответствующих данных
-    if (currentUser?.role === 'financial') {
-      // Обновляем в financialUsers
-      const userIndex = financialUsers.findIndex((u: VerificationUser) => u.id === userId)
-      if (userIndex !== -1) {
-        const updatedUser = {
-          ...financialUsers[userIndex],
-          status: 'approved' as const,
-          accessClass,
-          reviewedAt: new Date().toISOString(),
-          reviewedBy: currentUser?.name || 'Модератор'
-        }
-        financialUsers[userIndex] = updatedUser
-        
-        // Обновляем текущий список пользователей
-        const filteredUsers = financialUsers.filter((u: VerificationUser) => u.status === filters.status)
-        setUsers(filteredUsers)
+  const handleApproveUser = async (applicationId: number, accessClass?: 'A' | 'AB' | 'ABC', comment?: string) => {
+    if (!user) return
+
+    try {
+      let response
+      
+      if (user.role === UserRole.FINANCIER) {
+        response = await apiClient.approveFinancierApplication(applicationId, accessClass || 'A')
+      } else if (user.role === UserRole.MVD) {
+        response = await apiClient.approveMvdApplication(applicationId)
       }
-    } else if (currentUser?.role === 'mvd') {
-      // Обновляем в mvdUsers
-      const userIndex = mvdUsers.findIndex((u: VerificationUser) => u.id === userId)
-      if (userIndex !== -1) {
-        const updatedUser = {
-          ...mvdUsers[userIndex],
-          status: 'approved' as const,
-          reviewedAt: new Date().toISOString(),
-          reviewedBy: currentUser?.name || 'Модератор',
-          ...(comment && { mvdComment: comment })
-        }
-        mvdUsers[userIndex] = updatedUser
-        
-        // Обновляем текущий список пользователей
-        const filteredUsers = mvdUsers.filter((u: VerificationUser) => u.status === filters.status)
-        setUsers(filteredUsers)
+
+      if (response?.statusCode === 200) {
+        // Reload applications to get updated data
+        await loadApplications()
+        setIsApprovalModalOpen(false)
+        setSelectedUserForApproval(null)
+      } else {
+        setError(response?.error || "Ошибка при одобрении заявки")
       }
+    } catch (error) {
+      console.error('Error approving application:', error)
+      setError("Произошла ошибка при одобрении заявки")
     }
-    
-    setIsApprovalModalOpen(false)
-    setSelectedUserForApproval(null)
   }
 
-  const handleRejectUser = async (userId: string, reason: string) => {
-    // В реальном приложении здесь будет API вызов
-    console.log('Rejecting user:', userId, 'with reason:', reason)
-    
-    // Обновляем статус пользователя в соответствующих данных
-    if (currentUser?.role === 'financial') {
-      // Обновляем в financialUsers
-      const userIndex = financialUsers.findIndex((u: VerificationUser) => u.id === userId)
-      if (userIndex !== -1) {
-        financialUsers[userIndex] = {
-          ...financialUsers[userIndex],
-          status: 'rejected' as const,
-          rejectionReason: reason,
-          reviewedAt: new Date().toISOString(),
-          reviewedBy: currentUser?.name || 'Модератор'
-        }
-        
-        // Обновляем текущий список пользователей
-        const filteredUsers = financialUsers.filter((u: VerificationUser) => u.status === filters.status)
-        setUsers(filteredUsers)
+  const handleRejectUser = async (applicationId: number, reason: string) => {
+    if (!user) return
+
+    try {
+      let response
+      
+      if (user.role === UserRole.FINANCIER) {
+        response = await apiClient.rejectFinancierApplication(applicationId)
+      } else if (user.role === UserRole.MVD) {
+        response = await apiClient.rejectMvdApplication(applicationId)
       }
-    } else if (currentUser?.role === 'mvd') {
-      // Обновляем в mvdUsers
-      const userIndex = mvdUsers.findIndex((u: VerificationUser) => u.id === userId)
-      if (userIndex !== -1) {
-        mvdUsers[userIndex] = {
-          ...mvdUsers[userIndex],
-          status: 'rejected' as const,
-          rejectionReason: reason,
-          reviewedAt: new Date().toISOString(),
-          reviewedBy: currentUser?.name || 'Модератор'
-        }
-        
-        // Обновляем текущий список пользователей
-        const filteredUsers = mvdUsers.filter((u: VerificationUser) => u.status === filters.status)
-        setUsers(filteredUsers)
+
+      if (response?.statusCode === 200) {
+        // Reload applications to get updated data
+        await loadApplications()
+        setIsApprovalModalOpen(false)
+        setSelectedUserForApproval(null)
+      } else {
+        setError(response?.error || "Ошибка при отклонении заявки")
       }
+    } catch (error) {
+      console.error('Error rejecting application:', error)
+      setError("Произошла ошибка при отклонении заявки")
     }
-    
-    setIsApprovalModalOpen(false)
-    setSelectedUserForApproval(null)
+  }
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#F8F8F8] flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-[#191919] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-[#666666]">Загрузка...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show error if not authenticated
+  if (!isAuthenticated) {
+    return null
   }
 
 
   return (
     <div className="min-h-screen bg-[#F8F8F8]">
       {/* User Info Header - Mobile Only */}
-      {currentUser && (
+      {user && (
         <div className="block lg:hidden bg-[#191919] text-white px-4 py-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
                 <span className="text-sm font-semibold">
-                  {currentUser.name.split(' ').map((n: string) => n[0]).join('')}
+                  {user.first_name[0]}{user.last_name[0]}
                 </span>
               </div>
               <div>
-                <div className="text-sm font-medium">{currentUser.name}</div>
-                <div className="text-xs text-white/70">{currentUser.position}</div>
+                <div className="text-sm font-medium">{user.first_name} {user.last_name}</div>
+                <div className="text-xs text-white/70">
+                  {user.role === UserRole.FINANCIER ? 'Финансист' : 'МВД'}
+                </div>
               </div>
             </div>
             <div className="text-xs text-white/70">
-              {currentUser.department}
+              {user.role === UserRole.FINANCIER ? 'Финансовый отдел' : 'МВД'}
             </div>
           </div>
         </div>
@@ -238,7 +231,7 @@ export default function VerificationPage() {
                     Верификация пользователей
                   </h1>
                   <span className="text-sm font-medium text-[#666666] bg-[#F4F4F4] px-3 py-1 rounded-full self-start xs:self-auto">
-                    {currentUser?.department || 'azvmotors'}
+                    {user?.role === UserRole.FINANCIER ? 'Финансовый отдел' : 'МВД'}
                   </span>
                 </div>
                 <p className="text-sm text-[#666666] hidden xs:block">
@@ -263,10 +256,10 @@ export default function VerificationPage() {
               </div>
               <div className="flex items-center gap-3">
                 <div className="text-sm text-[#666666] hidden sm:block">
-                  {currentUser?.name}
+                  {user?.first_name} {user?.last_name}
                 </div>
                 <button
-                  onClick={handleLogout}
+                  onClick={logout}
                   className="flex items-center gap-2 px-3 py-2 text-[#666666] hover:text-[#191919] hover:bg-[#F4F4F4] rounded-lg transition-colors"
                 >
                   <HiLogout className="w-4 h-4" /> Выйти
@@ -279,42 +272,36 @@ export default function VerificationPage() {
 
         <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-3 sm:py-6 pt-4 sm:pt-8">
 
+        {/* Error Message */}
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 mb-6">
+            <p className="text-red-400 text-sm">{error}</p>
+          </div>
+        )}
+
         {/* Segmented Control for Status */}
         <div className="space-y-4 sm:space-y-6">
           <div className="bg-white p-2 rounded-xl shadow-sm">
             {/* Mobile: Horizontal scroll */}
             <div className="block sm:hidden">
               <div className="flex bg-[#F4F4F4] rounded-full gap-1 p-1 overflow-x-auto scrollbar-hide snap-x snap-mandatory">
-                {/* Left padding for better scroll experience */}
-                
                 {[
-                  { value: 'pending', label: 'Новые заявки', count: getUsersCount('pending') },
-                  { value: 'approved', label: 'Одобренные', count: getUsersCount('approved') },
-                  { value: 'rejected', label: 'Отклонённые', count: getUsersCount('rejected') }
-                ].map(({ value, label, count }) => (
+                  { value: 'pending', label: 'Новые заявки' },
+                  { value: 'approved', label: 'Одобренные' },
+                  { value: 'rejected', label: 'Отклонённые' }
+                ].map(({ value, label }) => (
                   <button
                     key={value}
-                    onClick={() => setFilters(prev => ({ ...prev, status: value as 'pending' | 'approved' | 'rejected' }))}
+                    onClick={() => setFilters(prev => ({ ...prev, status: value as ApplicationStatus }))}
                     className={`flex-shrink-0 py-3 px-5 rounded-full text-sm font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-opacity-20 snap-center ${
                       filters.status === value
                         ? "bg-[#191919] text-white transform scale-[0.98] shadow-sm"
                         : "bg-transparent text-[#191919] hover:bg-gray-200"
                     }`}
                   >
-                    <div className="flex items-center gap-2">
-                      <span className="whitespace-nowrap">{label}</span>
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold flex-shrink-0 ${
-                        filters.status === value
-                          ? "bg-white/20 text-white"
-                          : "bg-[#191919]/10 text-[#191919]"
-                      }`}>
-                        {count}
-                      </span>
-                    </div>
+                    <span className="whitespace-nowrap">{label}</span>
                   </button>
                 ))}
-                {/* Right padding for better scroll experience */}
-                
               </div>
             </div>
             
@@ -322,42 +309,40 @@ export default function VerificationPage() {
             <div className="hidden sm:block">
               <div className="flex bg-[#F4F4F4] rounded-full gap-1 p-1">
                 {[
-                  { value: 'pending', label: 'Новые заявки', count: getUsersCount('pending') },
-                  { value: 'approved', label: 'Одобренные', count: getUsersCount('approved') },
-                  { value: 'rejected', label: 'Отклонённые', count: getUsersCount('rejected') }
-                ].map(({ value, label, count }) => (
+                  { value: 'pending', label: 'Новые заявки' },
+                  { value: 'approved', label: 'Одобренные' },
+                  { value: 'rejected', label: 'Отклонённые' }
+                ].map(({ value, label }) => (
                   <button
                     key={value}
-                    onClick={() => setFilters(prev => ({ ...prev, status: value as 'pending' | 'approved' | 'rejected' }))}
+                    onClick={() => setFilters(prev => ({ ...prev, status: value as ApplicationStatus }))}
                     className={`flex-1 py-3 px-4 lg:px-6 rounded-full text-sm lg:text-base font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-opacity-20 ${
                       filters.status === value
                         ? "bg-[#191919] text-white transform scale-[0.98] shadow-sm"
                         : "bg-transparent text-[#191919] hover:bg-gray-200"
                     }`}
                   >
-                    <div className="flex items-center justify-center gap-2">
-                      <span className="truncate">{label}</span>
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold flex-shrink-0 ${
-                        filters.status === value
-                          ? "bg-white/20 text-white"
-                          : "bg-[#191919]/10 text-[#191919]"
-                      }`}>
-                        {count}
-                      </span>
-                    </div>
+                    <span className="truncate">{label}</span>
                   </button>
                 ))}
               </div>
             </div>
           </div>
 
-          {/* Users List */}
+          {/* Applications List */}
           <div className="space-y-4 sm:space-y-6">
-            {filteredUsers.length > 0 ? (
-              filteredUsers.map((user) => (
+            {isLoadingApplications ? (
+              <Card>
+                <CardContent className="p-8 sm:p-12 text-center">
+                  <div className="w-8 h-8 border-2 border-[#191919] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                  <p className="text-[#666666]">Загрузка заявок...</p>
+                </CardContent>
+              </Card>
+            ) : applications.length > 0 ? (
+              applications.map((application) => (
                 <UserCard
-                  key={user.id}
-                  user={user}
+                  key={application.application_id}
+                  application={application}
                   onApprove={handleApprove}
                   onReject={handleRejectUser}
                   showActions={filters.status === 'pending'}
@@ -368,10 +353,10 @@ export default function VerificationPage() {
                 <CardContent className="p-8 sm:p-12 text-center">
                   <HiUsers className="w-10 h-10 sm:w-12 sm:h-12 text-[#666666] mx-auto mb-3 sm:mb-4" />
                   <h3 className="text-base sm:text-lg font-medium text-[#191919] mb-2">
-                    Нет пользователей
+                    Нет заявок
                   </h3>
                   <p className="text-sm sm:text-base text-[#666666]">
-                    В выбранных фильтрах пока нет пользователей
+                    В выбранных фильтрах пока нет заявок
                   </p>
                 </CardContent>
               </Card>
@@ -387,8 +372,8 @@ export default function VerificationPage() {
           setIsApprovalModalOpen(false)
           setSelectedUserForApproval(null)
         }}
-        user={selectedUserForApproval}
-        userRole={currentUser?.role || 'financial'}
+        application={selectedUserForApproval}
+        userRole={user?.role || UserRole.FINANCIER}
         onApprove={handleApproveUser}
       />
     </div>
