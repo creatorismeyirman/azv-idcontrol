@@ -1,8 +1,8 @@
 "use client"
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
-import { User, UserRole } from '@/types/api'
+import { User } from '@/types/api'
 import apiClient from '@/lib/api'
 
 interface AuthContextType {
@@ -39,7 +39,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const isAuthenticated = !!user
 
   // Function to check if user has access (financier or mvd)
-  const checkAccess = (): boolean => {
+  const checkAccess = useCallback((): boolean => {
     const userRole = getUserRole()
     const hasAccess = userRole === 'financier' || userRole === 'mvd'
     
@@ -52,7 +52,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
     
     return hasAccess
-  }
+  }, [router])
 
   useEffect(() => {
     // Check if user is already authenticated on mount
@@ -97,7 +97,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
 
     checkAuth()
-  }, [])
+  }, [checkAccess])
 
   const sendSms = async (phoneNumber: string): Promise<boolean> => {
     try {

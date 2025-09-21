@@ -1,5 +1,5 @@
 // API Response Types
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   statusCode: number
   data?: T
   error?: string
@@ -30,8 +30,8 @@ export interface User {
   last_name: string
   role: UserRole
   wallet_balance: number
-  current_rental: any | null
-  owned_cars: any[]
+  current_rental: unknown | null
+  owned_cars: unknown[]
   locale: string
   unread_message: number
   documents: UserDocuments
@@ -89,9 +89,9 @@ export interface ApplicationsResponse {
 }
 
 // Financier API Types
-export interface FinancierPendingResponse extends ApplicationsResponse {}
-export interface FinancierApprovedResponse extends ApplicationsResponse {}
-export interface FinancierRejectedResponse extends ApplicationsResponse {}
+export type FinancierPendingResponse = ApplicationsResponse
+export type FinancierApprovedResponse = ApplicationsResponse
+export type FinancierRejectedResponse = ApplicationsResponse
 
 export interface ApproveApplicationRequest {
   auto_class: string
@@ -111,9 +111,9 @@ export interface RejectApplicationResponse {
 }
 
 // MVD API Types
-export interface MvdPendingResponse extends ApplicationsResponse {}
-export interface MvdApprovedResponse extends ApplicationsResponse {}
-export interface MvdRejectedResponse extends ApplicationsResponse {}
+export type MvdPendingResponse = ApplicationsResponse
+export type MvdApprovedResponse = ApplicationsResponse
+export type MvdRejectedResponse = ApplicationsResponse
 
 export interface MvdApproveResponse {
   message: string

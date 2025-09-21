@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { LogIn, User, Shield, Phone, MessageSquare } from "@/components/icons"
+import { LogIn, Phone } from "@/components/icons"
 import Image from "next/image"
 import { useAuth } from "@/contexts/AuthContext"
 import { PhoneInput } from "@/components/ui/PhoneInput"
@@ -60,7 +60,7 @@ function LoginForm() {
       } else {
         setError("Ошибка отправки SMS. Попробуйте еще раз.")
       }
-    } catch (error) {
+    } catch {
       setError("Произошла ошибка. Попробуйте еще раз.")
     } finally {
       setIsSendingSms(false)
@@ -82,7 +82,7 @@ function LoginForm() {
       } else {
         setError("Неверный код. Попробуйте еще раз.")
       }
-    } catch (error) {
+    } catch {
       setError("Произошла ошибка. Попробуйте еще раз.")
     }
   }
@@ -91,7 +91,7 @@ function LoginForm() {
     try {
       const phoneNumber = "7" + phone.replace(/\D/g, "")
       await sendSms(phoneNumber)
-    } catch (error) {
+    } catch {
       setError("Ошибка повторной отправки SMS")
     }
   }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { UserCard } from "@/components/verification/user-card"
@@ -40,14 +40,7 @@ export default function VerificationPage() {
     }
   }, [isLoading, isAuthenticated, router])
 
-  // Load applications when user or filters change
-  useEffect(() => {
-    if (user && isAuthenticated) {
-      loadApplications()
-    }
-  }, [user, filters.status, filters.search])
-
-  const loadApplications = async () => {
+  const loadApplications = useCallback(async () => {
     if (!user) return
 
     setIsLoadingApplications(true)
@@ -93,7 +86,14 @@ export default function VerificationPage() {
     } finally {
       setIsLoadingApplications(false)
     }
-  }
+  }, [user, filters.status, filters.search])
+
+  // Load applications when user or filters change
+  useEffect(() => {
+    if (user && isAuthenticated) {
+      loadApplications()
+    }
+  }, [user, isAuthenticated, loadApplications, filters.status, filters.search])
 
   // Block page scroll when modal is open
   useEffect(() => {
@@ -114,7 +114,7 @@ export default function VerificationPage() {
     setIsApprovalModalOpen(true)
   }
 
-  const handleApproveUser = async (applicationId: number, accessClass?: 'A' | 'AB' | 'ABC', comment?: string) => {
+  const handleApproveUser = async (applicationId: number, accessClass?: 'A' | 'AB' | 'ABC') => {
     if (!user) return
 
     try {
@@ -140,7 +140,7 @@ export default function VerificationPage() {
     }
   }
 
-  const handleRejectUser = async (applicationId: number, reason: string) => {
+  const handleRejectUser = async (applicationId: number) => {
     if (!user) return
 
     try {

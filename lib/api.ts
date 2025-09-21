@@ -7,15 +7,13 @@ import {
   FinancierPendingResponse,
   FinancierApprovedResponse,
   FinancierRejectedResponse,
-  ApproveApplicationRequest,
   ApproveApplicationResponse,
   RejectApplicationResponse,
   MvdPendingResponse,
   MvdApprovedResponse,
   MvdRejectedResponse,
   MvdApproveResponse,
-  MvdRejectResponse,
-  SearchParams
+  MvdRejectResponse
 } from '@/types/api'
 
 const API_BASE_URL = 'https://api.azvmotors.kz'

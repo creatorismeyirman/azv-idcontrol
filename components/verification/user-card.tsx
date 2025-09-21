@@ -99,15 +99,15 @@ export function UserCard({
     }
   }
 
-  const formatLastOnline = (dateString: string) => {
-    const date = new Date(dateString)
-    const now = new Date()
-    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60))
-    
-    if (diffInHours < 1) return 'Был в сети только что'
-    if (diffInHours < 24) return `Был в сети ${diffInHours} ч. назад`
-    return `Был в сети ${date.toLocaleDateString('ru-RU')} в ${date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`
-  }
+  // const formatLastOnline = (dateString: string) => {
+  //   const date = new Date(dateString)
+  //   const now = new Date()
+  //   const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60))
+  //   
+  //   if (diffInHours < 1) return 'Был в сети только что'
+  //   if (diffInHours < 24) return `Был в сети ${diffInHours} ч. назад`
+  //   return `Был в сети ${date.toLocaleDateString('ru-RU')} в ${date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`
+  // }
 
   const handleApprove = () => {
     onApprove(application)
