@@ -106,7 +106,8 @@ export default function VerificationPage() {
         app.first_name.toLowerCase().includes(filters.search.toLowerCase()) ||
         app.last_name.toLowerCase().includes(filters.search.toLowerCase()) ||
         app.phone_number.includes(filters.search) ||
-        app.iin.includes(filters.search)
+        (app.iin && app.iin.includes(filters.search)) ||
+        (app.passport_number && app.passport_number.includes(filters.search))
       )
       setApplications(filtered)
     }
@@ -157,16 +158,16 @@ export default function VerificationPage() {
     }
   }
 
-  const handleRejectUser = async (applicationId: number) => {
+  const handleRejectUser = async (applicationId: number, reason: string) => {
     if (!user) return
 
     try {
       let response
       
       if (user.role === UserRole.FINANCIER) {
-        response = await apiClient.rejectFinancierApplication(applicationId)
+        response = await apiClient.rejectFinancierApplication(applicationId, reason)
       } else if (user.role === UserRole.MVD) {
-        response = await apiClient.rejectMvdApplication(applicationId)
+        response = await apiClient.rejectMvdApplication(applicationId, reason)
       }
 
       if (response?.statusCode === 200) {
@@ -265,7 +266,7 @@ export default function VerificationPage() {
                 </div>
                 <input
                   type="text"
-                  placeholder="Поиск по имени, телефону, ИИН..."
+                  placeholder="Поиск по имени, телефону, ИИН, паспорту..."
                   value={filters.search}
                   onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
                   className="w-full lg:w-80 pl-12 pr-4 py-3 bg-[#F8F8F8] border border-[#E5E5E5] rounded-xl focus:ring-2 focus:ring-[#191919]/20 focus:border-[#191919] transition-all duration-300 placeholder:text-[#999999] text-[#191919] text-base"
@@ -363,6 +364,7 @@ export default function VerificationPage() {
                   onApprove={handleApprove}
                   onReject={handleRejectUser}
                   showActions={filters.status === 'pending'}
+                  forceStatus={filters.status}  // Force the status based on current tab
                 />
               ))
             ) : (

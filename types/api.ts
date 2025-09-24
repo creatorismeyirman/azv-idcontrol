@@ -67,7 +67,8 @@ export interface Application {
   first_name: string
   last_name: string
   phone_number: string
-  iin: string
+  iin: string | null
+  passport_number: string | null
   birth_date: string | null
   id_card_expiry: string | null
   drivers_license_expiry: string | null
@@ -80,8 +81,12 @@ export interface Application {
   }
   auto_class: string[] | null
   approved_at: string | null
+  rejected_at?: string | null  // For financier rejected applications
+  mvd_rejected_at?: string | null  // For MVD rejected applications
   created_at: string
   updated_at: string
+  financier_reason?: string | null
+  mvd_reason?: string | null
 }
 
 export interface ApplicationsResponse {
@@ -108,6 +113,7 @@ export interface RejectApplicationResponse {
   message: string
   application_id: number
   user_id: number
+  reason?: string
 }
 
 // MVD API Types
@@ -125,6 +131,7 @@ export interface MvdRejectResponse {
   message: string
   application_id: number
   user_id: number
+  reason?: string
 }
 
 // Error Types

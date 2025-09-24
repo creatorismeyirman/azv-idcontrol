@@ -13,7 +13,9 @@ import {
   HiCreditCard,
   HiCheckCircle,
   HiXCircle,
-  HiChevronDown
+  HiChevronDown,
+  HiCalendar,
+  HiDocument
 } from "react-icons/hi2"
 import { HiX } from "react-icons/hi"
 import { HiChevronLeft, HiChevronRight } from "react-icons/hi2"
@@ -24,13 +26,15 @@ interface UserCardProps {
   onApprove: (application: Application) => void
   onReject: (applicationId: number, reason: string) => void
   showActions?: boolean
+  forceStatus?: 'pending' | 'approved' | 'rejected'  // Explicit status override
 }
 
 export function UserCard({ 
   application, 
   onApprove, 
   onReject, 
-  showActions = true
+  showActions = true,
+  forceStatus
 }: UserCardProps) {
   const [showDocuments, setShowDocuments] = useState(false)
   const [showRejectModal, setShowRejectModal] = useState(false)
@@ -57,9 +61,15 @@ export function UserCard({
 
   // Determine status based on application data
   const getApplicationStatus = (): 'pending' | 'approved' | 'rejected' => {
+    // If forceStatus is provided, use it (this overrides automatic detection)
+    if (forceStatus) return forceStatus
+    
+    
+    // Check if application is rejected by either financier or MVD
+    if (application.rejected_at || application.mvd_rejected_at) return 'rejected'
+    // Check if application is approved (approved_at field exists)
     if (application.approved_at) return 'approved'
-    // For now, we'll assume if not approved, it's pending
-    // In real implementation, you might have a status field
+    // If neither rejected nor approved, it's pending
     return 'pending'
   }
 
@@ -96,6 +106,37 @@ export function UserCard({
         return 'text-red-600 bg-red-50'
       default:
         return 'text-yellow-600 bg-yellow-50'
+    }
+  }
+
+  // Helper function to format date
+  const formatDate = (dateString: string | null): string => {
+    if (!dateString) return 'Не указано'
+    try {
+      return new Date(dateString).toLocaleDateString('ru-RU')
+    } catch {
+      return 'Неверная дата'
+    }
+  }
+
+  // Helper function to check if document is expired or expiring soon
+  const getDocumentStatus = (expiryDate: string | null) => {
+    if (!expiryDate) return { status: 'unknown', color: 'text-gray-600', text: 'Не указано' }
+    
+    try {
+      const expiry = new Date(expiryDate)
+      const now = new Date()
+      const daysUntilExpiry = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+      
+      if (daysUntilExpiry < 0) {
+        return { status: 'expired', color: 'text-red-600', text: 'Истек' }
+      } else if (daysUntilExpiry <= 30) {
+        return { status: 'expiring', color: 'text-orange-600', text: `Истекает через ${daysUntilExpiry} дн.` }
+      } else {
+        return { status: 'valid', color: 'text-green-600', text: 'Действителен' }
+      }
+    } catch {
+      return { status: 'unknown', color: 'text-gray-600', text: 'Неверная дата' }
     }
   }
 
@@ -263,7 +304,7 @@ export function UserCard({
             <div className="flex items-center gap-2">
               <HiCreditCard className="w-4 h-4 text-[#666666] flex-shrink-0" />
               <span className="text-xs sm:text-sm text-[#191919] truncate">
-                ИИН: {application.iin}
+                {application.iin ? `ИИН: ${application.iin}` : `Паспорт: ${application.passport_number || 'Не указан'}`}
               </span>
             </div>
             <div className="flex items-center gap-2 sm:col-span-2 lg:col-span-1">
@@ -273,6 +314,132 @@ export function UserCard({
               </span>
             </div>
           </div>
+
+          {/* Additional Identity Information */}
+          {(application.iin && application.passport_number) && (
+            <div className="mb-4 sm:mb-6">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="flex items-center gap-2">
+                    <HiCreditCard className="w-4 h-4 text-blue-600" />
+                    <span className="text-sm font-medium text-blue-800">
+                      ИИН: {application.iin}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <HiCreditCard className="w-4 h-4 text-blue-600" />
+                    <span className="text-sm font-medium text-blue-800">
+                      Паспорт: {application.passport_number}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Personal Information and Document Expiry */}
+          <div className="mb-4 sm:mb-6">
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 sm:p-4">
+              <h4 className="text-sm font-medium text-gray-800 mb-3">Личная информация и документы</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                {/* Birth Date */}
+                <div className="flex items-center gap-2">
+                  <HiCalendar className="w-4 h-4 text-gray-600 flex-shrink-0" />
+                  <div>
+                    <span className="text-xs text-gray-600 block">Дата рождения</span>
+                    <span className="text-sm font-medium text-gray-800">
+                      {formatDate(application.birth_date)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* ID Card Expiry */}
+                <div className="flex items-center gap-2">
+                  <HiDocument className="w-4 h-4 text-gray-600 flex-shrink-0" />
+                  <div>
+                    <span className="text-xs text-gray-600 block">Удостоверение личности</span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-sm font-medium text-gray-800">
+                        {formatDate(application.id_card_expiry)}
+                      </span>
+                      <span className={`text-xs font-medium ${getDocumentStatus(application.id_card_expiry).color}`}>
+                        ({getDocumentStatus(application.id_card_expiry).text})
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Driver's License Expiry */}
+                <div className="flex items-center gap-2">
+                  <HiDocument className="w-4 h-4 text-gray-600 flex-shrink-0" />
+                  <div>
+                    <span className="text-xs text-gray-600 block">Водительское удостоверение</span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-sm font-medium text-gray-800">
+                        {formatDate(application.drivers_license_expiry)}
+                      </span>
+                      <span className={`text-xs font-medium ${getDocumentStatus(application.drivers_license_expiry).color}`}>
+                        ({getDocumentStatus(application.drivers_license_expiry).text})
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Document Expiry Warnings */}
+          {(() => {
+            const idCardStatus = getDocumentStatus(application.id_card_expiry)
+            const driversLicenseStatus = getDocumentStatus(application.drivers_license_expiry)
+            
+            const expiredDocs = []
+            const expiringDocs = []
+            
+            if (idCardStatus.status === 'expired') expiredDocs.push('Удостоверение личности')
+            if (idCardStatus.status === 'expiring') expiringDocs.push('Удостоверение личности')
+            
+            if (driversLicenseStatus.status === 'expired') expiredDocs.push('Водительское удостоверение')
+            if (driversLicenseStatus.status === 'expiring') expiringDocs.push('Водительское удостоверение')
+            
+            if (expiredDocs.length > 0 || expiringDocs.length > 0) {
+              return (
+                <div className="mb-4 sm:mb-6">
+                  {expiredDocs.length > 0 && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-2">
+                      <div className="flex items-center gap-2">
+                        <HiXCircle className="w-4 h-4 text-red-600" />
+                        <div>
+                          <span className="text-sm font-medium text-red-800 block">
+                            Истекшие документы:
+                          </span>
+                          <span className="text-sm text-red-700">
+                            {expiredDocs.join(', ')}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {expiringDocs.length > 0 && (
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                      <div className="flex items-center gap-2">
+                        <HiClock className="w-4 h-4 text-orange-600" />
+                        <div>
+                          <span className="text-sm font-medium text-orange-800 block">
+                            Документы истекают в ближайшее время:
+                          </span>
+                          <span className="text-sm text-orange-700">
+                            {expiringDocs.join(', ')}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            }
+            return null
+          })()}
 
           {/* Documents Preview */}
           <div className="mb-4 sm:mb-6">
@@ -337,6 +504,49 @@ export function UserCard({
             </div>
           )}
 
+          {(application.rejected_at || application.mvd_rejected_at) && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+              <div className="flex items-center gap-2">
+                <HiXCircle className="w-4 h-4 text-red-600" />
+                <span className="text-sm font-medium text-red-800">
+                  Отклонено: {new Date(application.rejected_at || application.mvd_rejected_at!).toLocaleDateString('ru-RU')}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Rejection Reasons */}
+          {(application.financier_reason || application.mvd_reason) && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+              <div className="flex items-start gap-2">
+                <HiXCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                <div className="space-y-2">
+                  {application.financier_reason && (
+                    <div>
+                      <span className="text-sm font-medium text-red-800 block mb-1">
+                        Причина отклонения (Финансист):
+                      </span>
+                      <span className="text-sm text-red-700">
+                        {application.financier_reason}
+                      </span>
+                    </div>
+                  )}
+                  {application.mvd_reason && (
+                    <div>
+                      <span className="text-sm font-medium text-red-800 block mb-1">
+                        Причина отклонения (МВД):
+                      </span>
+                      <span className="text-sm text-red-700">
+                        {application.mvd_reason}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+
           {/* Actions */}
           {showActions && getApplicationStatus() === 'pending' && (
             <div className="space-y-3 sm:space-y-4 pt-3 sm:pt-4 border-t border-[#E5E5E5]">
@@ -380,6 +590,11 @@ export function UserCard({
                   <p className="text-xs sm:text-sm text-[#666666]">
                     Просмотр документов
                   </p>
+                  <div className="flex items-center gap-4 mt-1">
+                    <span className="text-xs text-[#666666]">
+                      {application.iin ? `ИИН: ${application.iin}` : `Паспорт: ${application.passport_number || 'Не указан'}`}
+                    </span>
+                  </div>
                 </div>
               </div>
               <button
@@ -437,7 +652,7 @@ export function UserCard({
                 value={rejectionReason}
                 onChange={(e) => setRejectionReason(e.target.value)}
                 placeholder="Введите причину отклонения..."
-                className="w-full px-3 sm:px-4 py-2.5 sm:py-3 border border-[#E5E5E5] rounded-lg sm:rounded-xl focus:ring-2 focus:ring-[#D32F2F]/20 focus:border-[#D32F2F] transition-all duration-300 resize-none text-sm sm:text-base placeholder:text-[#191919]"
+                className="w-full px-3 sm:px-4 py-2.5 sm:py-3 border border-[#E5E5E5] rounded-lg sm:rounded-xl focus:ring-2 focus:ring-[#D32F2F]/20 focus:border-[#D32F2F] transition-all duration-300 resize-none text-sm sm:text-base text-black placeholder:text-[#191919]"
                 rows={4}
               />
             </div>

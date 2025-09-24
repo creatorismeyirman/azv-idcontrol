@@ -184,10 +184,14 @@ class ApiClient {
   }
 
   async rejectFinancierApplication(
-    applicationId: number
+    applicationId: number,
+    reason?: string
   ): Promise<ApiResponse<RejectApplicationResponse>> {
+    const params = new URLSearchParams()
+    if (reason) params.append('reason', reason)
+    
     return this.request<RejectApplicationResponse>(
-      `/financier/reject/${applicationId}`,
+      `/financier/reject/${applicationId}?${params.toString()}`,
       { method: 'POST' }
     )
   }
@@ -224,10 +228,14 @@ class ApiClient {
   }
 
   async rejectMvdApplication(
-    applicationId: number
+    applicationId: number,
+    reason?: string
   ): Promise<ApiResponse<MvdRejectResponse>> {
+    const params = new URLSearchParams()
+    if (reason) params.append('reason', reason)
+    
     return this.request<MvdRejectResponse>(
-      `/mvd/reject/${applicationId}`,
+      `/mvd/reject/${applicationId}?${params.toString()}`,
       { method: 'POST' }
     )
   }
