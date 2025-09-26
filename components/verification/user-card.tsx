@@ -24,9 +24,10 @@ import Image from "next/image"
 interface UserCardProps {
   application: Application
   onApprove: (application: Application) => void
-  onReject: (applicationId: number, reason: string) => void
+  onReject: (applicationId: number, reason: string, reasonType?: 'financial' | 'documents') => void
   showActions?: boolean
   forceStatus?: 'pending' | 'approved' | 'rejected'  // Explicit status override
+  userRole?: 'financier' | 'mvd'  // Add user role to determine rejection type
 }
 
 export function UserCard({ 
@@ -34,11 +35,13 @@ export function UserCard({
   onApprove, 
   onReject, 
   showActions = true,
-  forceStatus
+  forceStatus,
+  userRole
 }: UserCardProps) {
   const [showDocuments, setShowDocuments] = useState(false)
   const [showRejectModal, setShowRejectModal] = useState(false)
   const [rejectionReason, setRejectionReason] = useState("")
+  const [rejectionReasonType, setRejectionReasonType] = useState<'financial' | 'documents' | null>(null)
   const [showAllDocuments, setShowAllDocuments] = useState(false)
   const [showCarousel, setShowCarousel] = useState(false)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
@@ -156,9 +159,14 @@ export function UserCard({
 
   const handleReject = () => {
     if (rejectionReason.trim()) {
-      onReject(application.application_id, rejectionReason)
+      // For financier, require reason type selection
+      if (userRole === 'financier' && !rejectionReasonType) {
+        return
+      }
+      onReject(application.application_id, rejectionReason, rejectionReasonType || undefined)
       setShowRejectModal(false)
       setRejectionReason("")
+      setRejectionReasonType(null)
     }
   }
 
@@ -645,6 +653,59 @@ export function UserCard({
             </div>
             
             <div className="mb-4 sm:mb-6">
+              {/* Reason Type Selection for Financier */}
+              {userRole === 'financier' && (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-[#191919] mb-2">
+                    Тип причины отклонения
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => setRejectionReasonType('financial')}
+                      className={`p-3 rounded-lg border-2 text-left transition-all ${
+                        rejectionReasonType === 'financial'
+                          ? 'border-red-500 bg-red-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className={`w-4 h-4 rounded-full border-2 ${
+                          rejectionReasonType === 'financial'
+                            ? 'border-red-500 bg-red-500'
+                            : 'border-gray-300'
+                        }`}>
+                          {rejectionReasonType === 'financial' && (
+                            <div className="w-2 h-2 bg-white rounded-full m-0.5" />
+                          )}
+                        </div>
+                        <span className="text-sm font-medium text-gray-900">Финансовая часть</span>
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => setRejectionReasonType('documents')}
+                      className={`p-3 rounded-lg border-2 text-left transition-all ${
+                        rejectionReasonType === 'documents'
+                          ? 'border-red-500 bg-red-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className={`w-4 h-4 rounded-full border-2 ${
+                          rejectionReasonType === 'documents'
+                            ? 'border-red-500 bg-red-500'
+                            : 'border-gray-300'
+                        }`}>
+                          {rejectionReasonType === 'documents' && (
+                            <div className="w-2 h-2 bg-white rounded-full m-0.5" />
+                          )}
+                        </div>
+                        <span className="text-sm font-medium text-gray-900">Документы</span>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              )}
+              
               <label className="block text-sm font-medium text-[#191919] mb-2">
                 Укажите причину отклонения заявки
               </label>
@@ -666,9 +727,9 @@ export function UserCard({
               </button>
               <button
                 onClick={handleReject}
-                disabled={!rejectionReason.trim()}
+                disabled={!rejectionReason.trim() || (userRole === 'financier' && !rejectionReasonType)}
                 className={`flex-1 px-4 py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-semibold transition-all duration-300 text-sm sm:text-base ${
-                  rejectionReason.trim()
+                  rejectionReason.trim() && (!userRole || userRole !== 'financier' || rejectionReasonType)
                     ? "bg-[#D32F2F] text-white hover:bg-[#F44336]"
                     : "bg-[#E5E5E5] text-[#999999] cursor-not-allowed"
                 }`}

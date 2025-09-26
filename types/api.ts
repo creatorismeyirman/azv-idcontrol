@@ -114,6 +114,7 @@ export interface RejectApplicationResponse {
   application_id: number
   user_id: number
   reason?: string
+  reason_type?: 'financial' | 'documents'
 }
 
 // MVD API Types

@@ -112,9 +112,9 @@ export function ApprovalModal({
               </h4>
               <div className="grid grid-cols-1 gap-3">
                 {[
-                  { value: 'A', label: 'Класс A', description: 'Легковые автомобили до 3.5 тонн' },
-                  { value: 'AB', label: 'Класс AB', description: 'Легковые автомобили + мотоциклы' },
-                  { value: 'ABC', label: 'Класс ABC', description: 'Все категории транспорта' }
+                  { value: 'A', label: 'Класс A', description: 'машины до 25млн' },
+                  { value: 'AB', label: 'Класс AB', description: 'машины от 25млн до 40млн' },
+                  { value: 'ABC', label: 'Класс ABC', description: 'машины от 40млн+' }
                 ].map((option) => (
                   <button
                     key={option.value}

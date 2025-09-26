@@ -139,7 +139,14 @@ export default function VerificationPage() {
       let response
       
       if (user.role === UserRole.FINANCIER) {
-        response = await apiClient.approveFinancierApplication(applicationId, accessClass || 'A')
+        // Convert class format to comma-separated format as required by Swagger
+        const classMapping: Record<string, string> = {
+          'A': 'A',
+          'AB': 'A, B',
+          'ABC': 'A, B, C'
+        }
+        const mappedClass = classMapping[accessClass || 'A']
+        response = await apiClient.approveFinancierApplication(applicationId, mappedClass)
       } else if (user.role === UserRole.MVD) {
         response = await apiClient.approveMvdApplication(applicationId)
       }
@@ -158,14 +165,14 @@ export default function VerificationPage() {
     }
   }
 
-  const handleRejectUser = async (applicationId: number, reason: string) => {
+  const handleRejectUser = async (applicationId: number, reason: string, reasonType?: 'financial' | 'documents') => {
     if (!user) return
 
     try {
       let response
       
       if (user.role === UserRole.FINANCIER) {
-        response = await apiClient.rejectFinancierApplication(applicationId, reason)
+        response = await apiClient.rejectFinancierApplication(applicationId, reason, reasonType)
       } else if (user.role === UserRole.MVD) {
         response = await apiClient.rejectMvdApplication(applicationId, reason)
       }
@@ -365,6 +372,7 @@ export default function VerificationPage() {
                   onReject={handleRejectUser}
                   showActions={filters.status === 'pending'}
                   forceStatus={filters.status}  // Force the status based on current tab
+                  userRole={user?.role === UserRole.FINANCIER ? 'financier' : user?.role === UserRole.MVD ? 'mvd' : undefined}
                 />
               ))
             ) : (
