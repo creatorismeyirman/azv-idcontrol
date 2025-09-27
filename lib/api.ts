@@ -178,7 +178,7 @@ class ApiClient {
     autoClass: string
   ): Promise<ApiResponse<ApproveApplicationResponse>> {
     return this.request<ApproveApplicationResponse>(
-      `/financier/approve/${applicationId}?auto_class=${encodeURIComponent(autoClass)}`,
+      `/financier/approve/${applicationId}?auto_class=${autoClass}`,
       { method: 'POST' }
     )
   }
