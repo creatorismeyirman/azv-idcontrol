@@ -165,7 +165,7 @@ export default function VerificationPage() {
     }
   }
 
-  const handleRejectUser = async (applicationId: number, reason: string, reasonType?: 'financial' | 'documents') => {
+  const handleRejectUser = async (applicationId: number, reason: string, reasonType?: 'financial' | 'documents' | 'certificates') => {
     if (!user) return
 
     try {

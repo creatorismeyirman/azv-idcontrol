@@ -186,7 +186,7 @@ class ApiClient {
   async rejectFinancierApplication(
     applicationId: number,
     reason?: string,
-    reasonType?: 'financial' | 'documents'
+    reasonType?: 'financial' | 'documents' | 'certificates'
   ): Promise<ApiResponse<RejectApplicationResponse>> {
     const params = new URLSearchParams()
     if (reason) params.append('reason', reason)

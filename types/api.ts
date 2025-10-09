@@ -66,12 +66,20 @@ export interface Application {
   user_id: number
   first_name: string
   last_name: string
+  email: string | null
   phone_number: string
   iin: string | null
   passport_number: string | null
   birth_date: string | null
   id_card_expiry: string | null
   drivers_license_expiry: string | null
+  is_citizen_kz: boolean
+  certificates: {
+    psych_neurology_certificate_url: string | null
+    narcology_certificate_url: string | null
+    pension_contributions_certificate_url: string | null
+    criminal_record_certificate_url: string | null
+  }
   documents: {
     id_card_front_url: string | null
     id_card_back_url: string | null
@@ -85,6 +93,7 @@ export interface Application {
   mvd_rejected_at?: string | null  // For MVD rejected applications
   created_at: string
   updated_at: string
+  reason?: string | null
   financier_reason?: string | null
   mvd_reason?: string | null
 }
@@ -114,7 +123,7 @@ export interface RejectApplicationResponse {
   application_id: number
   user_id: number
   reason?: string
-  reason_type?: 'financial' | 'documents'
+  reason_type?: 'financial' | 'documents' | 'certificates'
 }
 
 // MVD API Types

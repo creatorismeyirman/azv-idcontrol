@@ -15,7 +15,9 @@ import {
   HiXCircle,
   HiChevronDown,
   HiCalendar,
-  HiDocument
+  HiDocument,
+  HiEnvelope,
+  HiShieldCheck
 } from "react-icons/hi2"
 import { HiX } from "react-icons/hi"
 import { HiChevronLeft, HiChevronRight } from "react-icons/hi2"
@@ -24,7 +26,7 @@ import Image from "next/image"
 interface UserCardProps {
   application: Application
   onApprove: (application: Application) => void
-  onReject: (applicationId: number, reason: string, reasonType?: 'financial' | 'documents') => void
+  onReject: (applicationId: number, reason: string, reasonType?: 'financial' | 'documents' | 'certificates') => void
   showActions?: boolean
   forceStatus?: 'pending' | 'approved' | 'rejected'  // Explicit status override
   userRole?: 'financier' | 'mvd'  // Add user role to determine rejection type
@@ -41,7 +43,7 @@ export function UserCard({
   const [showDocuments, setShowDocuments] = useState(false)
   const [showRejectModal, setShowRejectModal] = useState(false)
   const [rejectionReason, setRejectionReason] = useState("")
-  const [rejectionReasonType, setRejectionReasonType] = useState<'financial' | 'documents' | null>(null)
+  const [rejectionReasonType, setRejectionReasonType] = useState<'financial' | 'documents' | 'certificates' | null>(null)
   const [showAllDocuments, setShowAllDocuments] = useState(false)
   const [showCarousel, setShowCarousel] = useState(false)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
@@ -309,6 +311,12 @@ export function UserCard({
               <HiPhone className="w-4 h-4 text-[#666666] flex-shrink-0" />
               <span className="text-xs sm:text-sm text-[#191919] truncate">{application.phone_number}</span>
             </div>
+            {application.email && (
+              <div className="flex items-center gap-2">
+                <HiEnvelope className="w-4 h-4 text-[#666666] flex-shrink-0" />
+                <span className="text-xs sm:text-sm text-[#191919] truncate">{application.email}</span>
+              </div>
+            )}
             <div className="flex items-center gap-2">
               <HiCreditCard className="w-4 h-4 text-[#666666] flex-shrink-0" />
               <span className="text-xs sm:text-sm text-[#191919] truncate">
@@ -392,9 +400,123 @@ export function UserCard({
                     </div>
                   </div>
                 </div>
+
+                {/* Citizenship Status */}
+                <div className="flex items-center gap-2">
+                  <HiShieldCheck className="w-4 h-4 text-gray-600 flex-shrink-0" />
+                  <div>
+                    <span className="text-xs text-gray-600 block">Гражданство РК</span>
+                    <div className="flex items-center gap-1">
+                      <span className={`text-sm font-medium ${application.is_citizen_kz ? 'text-green-600' : 'text-gray-800'}`}>
+                        {application.is_citizen_kz ? '✓ Да' : 'Нет'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
+
+          {/* Certificates Section - Only show for KZ citizens */}
+          {application.is_citizen_kz && (
+            <div className="mb-4 sm:mb-6">
+              <div className="bg-gray-50 border border-gray-300 rounded-lg p-3 sm:p-4">
+                <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                  <HiDocument className="w-4 h-4" />
+                  Сертификаты для граждан РК
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+                  {/* Psych/Neurology Certificate */}
+                  <div className="flex items-center justify-between bg-white border border-gray-200 rounded-lg p-2 sm:p-3 hover:border-gray-400 transition-colors">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <HiDocument className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                      <span className="text-xs sm:text-sm text-gray-700 truncate">
+                        Психиатр/Невропатолог
+                      </span>
+                    </div>
+                    {application.certificates.psych_neurology_certificate_url ? (
+                      <a
+                        href={getImageUrl(application.certificates.psych_neurology_certificate_url)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="ml-2 flex-shrink-0 text-xs sm:text-sm text-gray-600 hover:text-gray-900 font-medium underline"
+                      >
+                        Открыть
+                      </a>
+                    ) : (
+                      <span className="ml-2 flex-shrink-0 text-xs text-gray-400">Не загружен</span>
+                    )}
+                  </div>
+
+                  {/* Narcology Certificate */}
+                  <div className="flex items-center justify-between bg-white border border-gray-200 rounded-lg p-2 sm:p-3 hover:border-gray-400 transition-colors">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <HiDocument className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                      <span className="text-xs sm:text-sm text-gray-700 truncate">
+                        Нарколог
+                      </span>
+                    </div>
+                    {application.certificates.narcology_certificate_url ? (
+                      <a
+                        href={getImageUrl(application.certificates.narcology_certificate_url)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="ml-2 flex-shrink-0 text-xs sm:text-sm text-gray-600 hover:text-gray-900 font-medium underline"
+                      >
+                        Открыть
+                      </a>
+                    ) : (
+                      <span className="ml-2 flex-shrink-0 text-xs text-gray-400">Не загружен</span>
+                    )}
+                  </div>
+
+                  {/* Pension Contributions Certificate */}
+                  <div className="flex items-center justify-between bg-white border border-gray-200 rounded-lg p-2 sm:p-3 hover:border-gray-400 transition-colors">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <HiDocument className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                      <span className="text-xs sm:text-sm text-gray-700 truncate">
+                        Пенсионные отчисления
+                      </span>
+                    </div>
+                    {application.certificates.pension_contributions_certificate_url ? (
+                      <a
+                        href={getImageUrl(application.certificates.pension_contributions_certificate_url)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="ml-2 flex-shrink-0 text-xs sm:text-sm text-gray-600 hover:text-gray-900 font-medium underline"
+                      >
+                        Открыть
+                      </a>
+                    ) : (
+                      <span className="ml-2 flex-shrink-0 text-xs text-gray-400">Не загружен</span>
+                    )}
+                  </div>
+
+                  {/* Criminal Record Certificate */}
+                  <div className="flex items-center justify-between bg-white border border-gray-200 rounded-lg p-2 sm:p-3 hover:border-gray-400 transition-colors">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <HiDocument className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                      <span className="text-xs sm:text-sm text-gray-700 truncate">
+                        Справка о судимости
+                      </span>
+                    </div>
+                    {application.certificates.criminal_record_certificate_url ? (
+                      <a
+                        href={getImageUrl(application.certificates.criminal_record_certificate_url)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="ml-2 flex-shrink-0 text-xs sm:text-sm text-gray-600 hover:text-gray-900 font-medium underline"
+                      >
+                        Открыть
+                      </a>
+                    ) : (
+                      <span className="ml-2 flex-shrink-0 text-xs text-gray-400">Не загружен</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Document Expiry Warnings */}
           {(() => {
@@ -524,18 +646,18 @@ export function UserCard({
           )}
 
           {/* Rejection Reasons */}
-          {(application.financier_reason || application.mvd_reason) && (
+          {(application.reason || application.financier_reason || application.mvd_reason) && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
               <div className="flex items-start gap-2">
                 <HiXCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
                 <div className="space-y-2">
-                  {application.financier_reason && (
+                  {(application.reason || application.financier_reason) && (
                     <div>
                       <span className="text-sm font-medium text-red-800 block mb-1">
                         Причина отклонения (Финансист):
                       </span>
                       <span className="text-sm text-red-700">
-                        {application.financier_reason}
+                        {application.reason || application.financier_reason}
                       </span>
                     </div>
                   )}
@@ -659,7 +781,7 @@ export function UserCard({
                   <label className="block text-sm font-medium text-[#191919] mb-2">
                     Тип причины отклонения
                   </label>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-3 gap-2">
                     <button
                       onClick={() => setRejectionReasonType('financial')}
                       className={`p-3 rounded-lg border-2 text-left transition-all ${
@@ -669,7 +791,7 @@ export function UserCard({
                       }`}
                     >
                       <div className="flex items-center gap-2">
-                        <div className={`w-4 h-4 rounded-full border-2 ${
+                        <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${
                           rejectionReasonType === 'financial'
                             ? 'border-red-500 bg-red-500'
                             : 'border-gray-300'
@@ -678,7 +800,7 @@ export function UserCard({
                             <div className="w-2 h-2 bg-white rounded-full m-0.5" />
                           )}
                         </div>
-                        <span className="text-sm font-medium text-gray-900">Финансовая часть</span>
+                        <span className="text-xs sm:text-sm font-medium text-gray-900">Финансы</span>
                       </div>
                     </button>
                     <button
@@ -690,7 +812,7 @@ export function UserCard({
                       }`}
                     >
                       <div className="flex items-center gap-2">
-                        <div className={`w-4 h-4 rounded-full border-2 ${
+                        <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${
                           rejectionReasonType === 'documents'
                             ? 'border-red-500 bg-red-500'
                             : 'border-gray-300'
@@ -699,7 +821,28 @@ export function UserCard({
                             <div className="w-2 h-2 bg-white rounded-full m-0.5" />
                           )}
                         </div>
-                        <span className="text-sm font-medium text-gray-900">Документы</span>
+                        <span className="text-xs sm:text-sm font-medium text-gray-900">Документы</span>
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => setRejectionReasonType('certificates')}
+                      className={`p-3 rounded-lg border-2 text-left transition-all ${
+                        rejectionReasonType === 'certificates'
+                          ? 'border-red-500 bg-red-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${
+                          rejectionReasonType === 'certificates'
+                            ? 'border-red-500 bg-red-500'
+                            : 'border-gray-300'
+                        }`}>
+                          {rejectionReasonType === 'certificates' && (
+                            <div className="w-2 h-2 bg-white rounded-full m-0.5" />
+                          )}
+                        </div>
+                        <span className="text-xs sm:text-sm font-medium text-gray-900">Справки РК</span>
                       </div>
                     </button>
                   </div>
