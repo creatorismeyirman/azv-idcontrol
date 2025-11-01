@@ -205,7 +205,7 @@ export function UserCard({
     // If it's a relative path starting with uploads/, make it absolute
     if (url.startsWith('uploads/') || url.startsWith('/uploads/')) {
       const cleanUrl = url.startsWith('/') ? url : `/${url}`
-      return `https://api.azvmotors.kz${cleanUrl}`
+      return `${process.env.NEXT_PUBLIC_API_BASE_URL}${cleanUrl}`
     }
     
     // If it starts with /, return as is (assuming it's a valid path)
@@ -215,7 +215,7 @@ export function UserCard({
     
     // If it's a relative path without uploads/, try to construct a valid URL
     if (url.includes('/') && !url.startsWith('http')) {
-      return `https://api.azvmotors.kz/${url}`
+      return `${process.env.NEXT_PUBLIC_API_BASE_URL}/${url}`
     }
     
     // For any other case, return placeholder
