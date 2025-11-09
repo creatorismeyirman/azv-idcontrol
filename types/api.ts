@@ -102,10 +102,22 @@ export interface ApplicationsResponse {
   applications: Application[]
 }
 
+export interface PaginationInfo {
+  total: number
+  page: number
+  per_page: number
+  total_pages: number
+}
+
+export interface PaginatedApplicationsResponse {
+  applications: Application[]
+  pagination: PaginationInfo
+}
+
 // Financier API Types
-export type FinancierPendingResponse = ApplicationsResponse
-export type FinancierApprovedResponse = ApplicationsResponse
-export type FinancierRejectedResponse = ApplicationsResponse
+export type FinancierPendingResponse = PaginatedApplicationsResponse
+export type FinancierApprovedResponse = PaginatedApplicationsResponse
+export type FinancierRejectedResponse = PaginatedApplicationsResponse
 
 export interface ApproveApplicationRequest {
   auto_class: string
@@ -127,9 +139,9 @@ export interface RejectApplicationResponse {
 }
 
 // MVD API Types
-export type MvdPendingResponse = ApplicationsResponse
-export type MvdApprovedResponse = ApplicationsResponse
-export type MvdRejectedResponse = ApplicationsResponse
+export type MvdPendingResponse = PaginatedApplicationsResponse
+export type MvdApprovedResponse = PaginatedApplicationsResponse
+export type MvdRejectedResponse = PaginatedApplicationsResponse
 
 export interface MvdApproveResponse {
   message: string

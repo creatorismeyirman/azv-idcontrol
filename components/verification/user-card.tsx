@@ -17,7 +17,9 @@ import {
   HiCalendar,
   HiDocument,
   HiEnvelope,
-  HiShieldCheck
+  HiShieldCheck,
+  HiClipboardDocument,
+  HiClipboardDocumentCheck
 } from "react-icons/hi2"
 import { HiX } from "react-icons/hi"
 import { HiChevronLeft, HiChevronRight } from "react-icons/hi2"
@@ -47,6 +49,7 @@ export function UserCard({
   const [showAllDocuments, setShowAllDocuments] = useState(false)
   const [showCarousel, setShowCarousel] = useState(false)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
+  const [copiedField, setCopiedField] = useState<string | null>(null)
 
   // Block page scroll when any modal is open
   useEffect(() => {
@@ -155,6 +158,18 @@ export function UserCard({
   //   return `Был в сети ${date.toLocaleDateString('ru-RU')} в ${date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`
   // }
 
+  const handleCopyToClipboard = async (text: string, fieldName: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopiedField(fieldName)
+      setTimeout(() => {
+        setCopiedField(null)
+      }, 2000)
+    } catch (err) {
+      console.error('Failed to copy text: ', err)
+    }
+  }
+
   const handleApprove = () => {
     onApprove(application)
   }
@@ -186,10 +201,10 @@ export function UserCard({
   }
 
   const documentTypes = [
-    { key: 'id_card_front_url', label: 'Удостоверение личности (лицевая сторона)' },
-    { key: 'id_card_back_url', label: 'Удостоверение личности (оборотная сторона)' },
-    { key: 'drivers_license_url', label: 'Водительское удостоверение' },
     { key: 'selfie_url', label: 'Селфи (портрет)' },
+    { key: 'id_card_front_url', label: application.is_citizen_kz ? 'Удостоверение личности (лицевая сторона)' : 'Паспорт (лицевая сторона)' },
+    { key: 'id_card_back_url', label: application.is_citizen_kz ? 'Удостоверение личности (оборотная сторона)' : 'Паспорт (оборотная сторона)' },
+    { key: 'drivers_license_url', label: 'Водительское удостоверение' },
     { key: 'selfie_with_license_url', label: 'Селфи с водительским удостоверением' }
   ] as const
 
@@ -270,6 +285,50 @@ export function UserCard({
     )
   }
 
+  // Component for copyable text field
+  const CopyableField = ({ 
+    icon: Icon, 
+    text, 
+    copyValue,
+    fieldName 
+  }: { 
+    icon: React.ElementType
+    text: string
+    copyValue: string
+    fieldName: string 
+  }) => {
+    const isCopied = copiedField === fieldName
+    
+    return (
+      <div className="flex items-center gap-2">
+        <Icon className="w-4 h-4 text-[#666666] flex-shrink-0" />
+        <span className="text-xs sm:text-sm text-[#191919] truncate flex-1">{text}</span>
+        <button
+          onClick={() => handleCopyToClipboard(copyValue, fieldName)}
+          className="flex items-center gap-1 px-2 py-1 text-xs font-medium transition-all rounded border flex-shrink-0"
+          style={{
+            backgroundColor: isCopied ? '#10b981' : '#f3f4f6',
+            color: isCopied ? '#ffffff' : '#6b7280',
+            borderColor: isCopied ? '#10b981' : '#e5e7eb'
+          }}
+          title="Скопировать"
+        >
+          {isCopied ? (
+            <>
+              <HiClipboardDocumentCheck className="w-3 h-3" />
+              <span>Copied</span>
+            </>
+          ) : (
+            <>
+              <HiClipboardDocument className="w-3 h-3" />
+              <span>Copy</span>
+            </>
+          )}
+        </button>
+      </div>
+    )
+  }
+
   return (
     <>
       <Card className="w-full hover:shadow-lg transition-shadow">
@@ -277,17 +336,51 @@ export function UserCard({
           {/* Header with profile info */}
           <div className="flex items-start gap-3 sm:gap-4 mb-4 sm:mb-6 pt-2 sm:pt-4">
             {/* Profile Picture */}
-            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg bg-[#F4F4F4] flex items-center justify-center flex-shrink-0">
-              <HiUser className="w-8 h-8 sm:w-10 sm:h-10 text-[#191919]" />
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg bg-[#F4F4F4] flex items-center justify-center flex-shrink-0 overflow-hidden">
+              {application.documents.selfie_url ? (
+                <img
+                  src={getImageUrl(application.documents.selfie_url)}
+                  alt="Фото профиля"
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none'
+                  }}
+                />
+              ) : null}
+              <HiUser className={`w-8 h-8 sm:w-10 sm:h-10 text-[#191919] ${application.documents.selfie_url ? 'hidden' : ''}`} />
             </div>
             
             {/* User Info */}
             <div className="flex-1 min-w-0">
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
-                <h3 className="text-xl sm:text-2xl font-bold text-[#191919] leading-tight">
-                  <span className="block sm:inline text-[#191919]">{application.first_name}</span>
-                  <span className="block sm:inline sm:ml-1 text-[#191919]">{application.last_name}</span>
-                </h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xl sm:text-2xl font-bold text-[#191919] leading-tight">
+                    <span className="block sm:inline text-[#191919]">{application.first_name}</span>
+                    <span className="block sm:inline sm:ml-1 text-[#191919]">{application.last_name}</span>
+                  </h3>
+                  <button
+                    onClick={() => handleCopyToClipboard(`${application.first_name} ${application.last_name}`, 'name')}
+                    className="flex items-center gap-1 px-2 py-1 text-xs font-medium transition-all rounded border flex-shrink-0"
+                    style={{
+                      backgroundColor: copiedField === 'name' ? '#10b981' : '#f3f4f6',
+                      color: copiedField === 'name' ? '#ffffff' : '#6b7280',
+                      borderColor: copiedField === 'name' ? '#10b981' : '#e5e7eb'
+                    }}
+                    title="Скопировать имя"
+                  >
+                    {copiedField === 'name' ? (
+                      <>
+                        <HiClipboardDocumentCheck className="w-3 h-3" />
+                        <span>Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <HiClipboardDocument className="w-3 h-3" />
+                        <span>Copy</span>
+                      </>
+                    )}
+                  </button>
+                </div>
                 <div className="flex items-center gap-2">
                   {getStatusIcon()}
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor()}`}>
@@ -307,22 +400,26 @@ export function UserCard({
 
           {/* Contact Information */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6">
-            <div className="flex items-center gap-2">
-              <HiPhone className="w-4 h-4 text-[#666666] flex-shrink-0" />
-              <span className="text-xs sm:text-sm text-[#191919] truncate">{application.phone_number}</span>
-            </div>
+            <CopyableField 
+              icon={HiPhone} 
+              text={application.phone_number}
+              copyValue={application.phone_number}
+              fieldName="phone" 
+            />
             {application.email && (
-              <div className="flex items-center gap-2">
-                <HiEnvelope className="w-4 h-4 text-[#666666] flex-shrink-0" />
-                <span className="text-xs sm:text-sm text-[#191919] truncate">{application.email}</span>
-              </div>
+              <CopyableField 
+                icon={HiEnvelope} 
+                text={application.email}
+                copyValue={application.email}
+                fieldName="email" 
+              />
             )}
-            <div className="flex items-center gap-2">
-              <HiCreditCard className="w-4 h-4 text-[#666666] flex-shrink-0" />
-              <span className="text-xs sm:text-sm text-[#191919] truncate">
-                {application.iin ? `ИИН: ${application.iin}` : `Паспорт: ${application.passport_number || 'Не указан'}`}
-              </span>
-            </div>
+            <CopyableField 
+              icon={HiCreditCard} 
+              text={application.iin ? `ИИН: ${application.iin}` : `Паспорт: ${application.passport_number || 'Не указан'}`}
+              copyValue={application.iin || application.passport_number || ''}
+              fieldName="id" 
+            />
             <div className="flex items-center gap-2 sm:col-span-2 lg:col-span-1">
               <HiClock className="w-4 h-4 text-[#666666] flex-shrink-0" />
               <span className="text-xs sm:text-sm text-[#191919]">
@@ -337,16 +434,60 @@ export function UserCard({
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="flex items-center gap-2">
-                    <HiCreditCard className="w-4 h-4 text-blue-600" />
-                    <span className="text-sm font-medium text-blue-800">
+                    <HiCreditCard className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                    <span className="text-sm font-medium text-blue-800 flex-1">
                       ИИН: {application.iin}
                     </span>
+                    <button
+                      onClick={() => handleCopyToClipboard(application.iin || '', 'iin-full')}
+                      className="flex items-center gap-1 px-2 py-1 text-xs font-medium transition-all rounded border flex-shrink-0"
+                      style={{
+                        backgroundColor: copiedField === 'iin-full' ? '#10b981' : '#dbeafe',
+                        color: copiedField === 'iin-full' ? '#ffffff' : '#1e40af',
+                        borderColor: copiedField === 'iin-full' ? '#10b981' : '#93c5fd'
+                      }}
+                      title="Скопировать"
+                    >
+                      {copiedField === 'iin-full' ? (
+                        <>
+                          <HiClipboardDocumentCheck className="w-3 h-3" />
+                          <span>Copied</span>
+                        </>
+                      ) : (
+                        <>
+                          <HiClipboardDocument className="w-3 h-3" />
+                          <span>Copy</span>
+                        </>
+                      )}
+                    </button>
                   </div>
                   <div className="flex items-center gap-2">
-                    <HiCreditCard className="w-4 h-4 text-blue-600" />
-                    <span className="text-sm font-medium text-blue-800">
+                    <HiCreditCard className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                    <span className="text-sm font-medium text-blue-800 flex-1">
                       Паспорт: {application.passport_number}
                     </span>
+                    <button
+                      onClick={() => handleCopyToClipboard(application.passport_number || '', 'passport-full')}
+                      className="flex items-center gap-1 px-2 py-1 text-xs font-medium transition-all rounded border flex-shrink-0"
+                      style={{
+                        backgroundColor: copiedField === 'passport-full' ? '#10b981' : '#dbeafe',
+                        color: copiedField === 'passport-full' ? '#ffffff' : '#1e40af',
+                        borderColor: copiedField === 'passport-full' ? '#10b981' : '#93c5fd'
+                      }}
+                      title="Скопировать"
+                    >
+                      {copiedField === 'passport-full' ? (
+                        <>
+                          <HiClipboardDocumentCheck className="w-3 h-3" />
+                          <span>Copied</span>
+                        </>
+                      ) : (
+                        <>
+                          <HiClipboardDocument className="w-3 h-3" />
+                          <span>Copy</span>
+                        </>
+                      )}
+                    </button>
                   </div>
                 </div>
               </div>
@@ -361,19 +502,45 @@ export function UserCard({
                 {/* Birth Date */}
                 <div className="flex items-center gap-2">
                   <HiCalendar className="w-4 h-4 text-gray-600 flex-shrink-0" />
-                  <div>
+                  <div className="flex-1">
                     <span className="text-xs text-gray-600 block">Дата рождения</span>
                     <span className="text-sm font-medium text-gray-800">
                       {formatDate(application.birth_date)}
                     </span>
                   </div>
+                  {application.birth_date && (
+                    <button
+                      onClick={() => handleCopyToClipboard(formatDate(application.birth_date), 'birth-date')}
+                      className="flex items-center gap-1 px-2 py-1 text-xs font-medium transition-all rounded border flex-shrink-0"
+                      style={{
+                        backgroundColor: copiedField === 'birth-date' ? '#10b981' : '#f3f4f6',
+                        color: copiedField === 'birth-date' ? '#ffffff' : '#6b7280',
+                        borderColor: copiedField === 'birth-date' ? '#10b981' : '#e5e7eb'
+                      }}
+                      title="Скопировать"
+                    >
+                      {copiedField === 'birth-date' ? (
+                        <>
+                          <HiClipboardDocumentCheck className="w-3 h-3" />
+                          <span>Copied</span>
+                        </>
+                      ) : (
+                        <>
+                          <HiClipboardDocument className="w-3 h-3" />
+                          <span>Copy</span>
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
 
                 {/* ID Card Expiry */}
                 <div className="flex items-center gap-2">
                   <HiDocument className="w-4 h-4 text-gray-600 flex-shrink-0" />
-                  <div>
-                    <span className="text-xs text-gray-600 block">Удостоверение личности</span>
+                  <div className="flex-1">
+                    <span className="text-xs text-gray-600 block">
+                      {application.is_citizen_kz ? 'Удостоверение личности' : 'Срок истечения паспорта'}
+                    </span>
                     <div className="flex items-center gap-1">
                       <span className="text-sm font-medium text-gray-800">
                         {formatDate(application.id_card_expiry)}
@@ -383,12 +550,36 @@ export function UserCard({
                       </span>
                     </div>
                   </div>
+                  {application.id_card_expiry && (
+                    <button
+                      onClick={() => handleCopyToClipboard(formatDate(application.id_card_expiry), 'id-expiry')}
+                      className="flex items-center gap-1 px-2 py-1 text-xs font-medium transition-all rounded border flex-shrink-0"
+                      style={{
+                        backgroundColor: copiedField === 'id-expiry' ? '#10b981' : '#f3f4f6',
+                        color: copiedField === 'id-expiry' ? '#ffffff' : '#6b7280',
+                        borderColor: copiedField === 'id-expiry' ? '#10b981' : '#e5e7eb'
+                      }}
+                      title="Скопировать"
+                    >
+                      {copiedField === 'id-expiry' ? (
+                        <>
+                          <HiClipboardDocumentCheck className="w-3 h-3" />
+                          <span>Copied</span>
+                        </>
+                      ) : (
+                        <>
+                          <HiClipboardDocument className="w-3 h-3" />
+                          <span>Copy</span>
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
 
                 {/* Driver's License Expiry */}
                 <div className="flex items-center gap-2">
                   <HiDocument className="w-4 h-4 text-gray-600 flex-shrink-0" />
-                  <div>
+                  <div className="flex-1">
                     <span className="text-xs text-gray-600 block">Водительское удостоверение</span>
                     <div className="flex items-center gap-1">
                       <span className="text-sm font-medium text-gray-800">
@@ -399,16 +590,40 @@ export function UserCard({
                       </span>
                     </div>
                   </div>
+                  {application.drivers_license_expiry && (
+                    <button
+                      onClick={() => handleCopyToClipboard(formatDate(application.drivers_license_expiry), 'license-expiry')}
+                      className="flex items-center gap-1 px-2 py-1 text-xs font-medium transition-all rounded border flex-shrink-0"
+                      style={{
+                        backgroundColor: copiedField === 'license-expiry' ? '#10b981' : '#f3f4f6',
+                        color: copiedField === 'license-expiry' ? '#ffffff' : '#6b7280',
+                        borderColor: copiedField === 'license-expiry' ? '#10b981' : '#e5e7eb'
+                      }}
+                      title="Скопировать"
+                    >
+                      {copiedField === 'license-expiry' ? (
+                        <>
+                          <HiClipboardDocumentCheck className="w-3 h-3" />
+                          <span>Copied</span>
+                        </>
+                      ) : (
+                        <>
+                          <HiClipboardDocument className="w-3 h-3" />
+                          <span>Copy</span>
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
 
                 {/* Citizenship Status */}
                 <div className="flex items-center gap-2">
                   <HiShieldCheck className="w-4 h-4 text-gray-600 flex-shrink-0" />
                   <div>
-                    <span className="text-xs text-gray-600 block">Гражданство РК</span>
+                    <span className="text-xs text-gray-600 block">Статус гражданства</span>
                     <div className="flex items-center gap-1">
                       <span className={`text-sm font-medium ${application.is_citizen_kz ? 'text-green-600' : 'text-gray-800'}`}>
-                        {application.is_citizen_kz ? '✓ Да' : 'Нет'}
+                        {application.is_citizen_kz ? '✓ Гражданин РК' : 'Иностранный гражданин'}
                       </span>
                     </div>
                   </div>
@@ -491,28 +706,6 @@ export function UserCard({
                       <span className="ml-2 flex-shrink-0 text-xs text-gray-400">Не загружен</span>
                     )}
                   </div>
-
-                  {/* Criminal Record Certificate */}
-                  <div className="flex items-center justify-between bg-white border border-gray-200 rounded-lg p-2 sm:p-3 hover:border-gray-400 transition-colors">
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <HiDocument className="w-4 h-4 text-gray-500 flex-shrink-0" />
-                      <span className="text-xs sm:text-sm text-gray-700 truncate">
-                        Справка о судимости
-                      </span>
-                    </div>
-                    {application.certificates.criminal_record_certificate_url ? (
-                      <a
-                        href={getImageUrl(application.certificates.criminal_record_certificate_url)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="ml-2 flex-shrink-0 text-xs sm:text-sm text-gray-600 hover:text-gray-900 font-medium underline"
-                      >
-                        Открыть
-                      </a>
-                    ) : (
-                      <span className="ml-2 flex-shrink-0 text-xs text-gray-400">Не загружен</span>
-                    )}
-                  </div>
                 </div>
               </div>
             </div>
@@ -526,8 +719,10 @@ export function UserCard({
             const expiredDocs = []
             const expiringDocs = []
             
-            if (idCardStatus.status === 'expired') expiredDocs.push('Удостоверение личности')
-            if (idCardStatus.status === 'expiring') expiringDocs.push('Удостоверение личности')
+            const idDocLabel = application.is_citizen_kz ? 'Удостоверение личности' : 'Паспорт'
+            
+            if (idCardStatus.status === 'expired') expiredDocs.push(idDocLabel)
+            if (idCardStatus.status === 'expiring') expiringDocs.push(idDocLabel)
             
             if (driversLicenseStatus.status === 'expired') expiredDocs.push('Водительское удостоверение')
             if (driversLicenseStatus.status === 'expiring') expiringDocs.push('Водительское удостоверение')

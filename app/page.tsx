@@ -7,7 +7,7 @@ import { UserCard } from "@/components/verification/user-card"
 import { ApprovalModal } from "@/components/modals/approval-modal"
 import { useAuth } from "@/contexts/AuthContext"
 import { Application, UserRole } from "@/types/api"
-import { HiUsers } from "react-icons/hi2"
+import { HiUsers, HiChevronLeft, HiChevronRight } from "react-icons/hi2"
 import { HiSearch, HiLogout } from "react-icons/hi"
 import Image from "next/image"
 import apiClient from "@/lib/api"
@@ -29,10 +29,15 @@ export default function VerificationPage() {
   })
   const [selectedUserForApproval, setSelectedUserForApproval] = useState<Application | null>(null)
   const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false)
-  const [allApplications, setAllApplications] = useState<Application[]>([])
   const [applications, setApplications] = useState<Application[]>([])
   const [isLoadingApplications, setIsLoadingApplications] = useState(false)
   const [error, setError] = useState("")
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [perPage, setPerPage] = useState(10)
+  const [totalPages, setTotalPages] = useState(0)
+  const [totalItems, setTotalItems] = useState(0)
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -53,65 +58,62 @@ export default function VerificationPage() {
       if (user.role === UserRole.FINANCIER) {
         switch (filters.status) {
           case 'pending':
-            response = await apiClient.getFinancierPending()
+            response = await apiClient.getFinancierPending(filters.search, currentPage, perPage)
             break
           case 'approved':
-            response = await apiClient.getFinancierApproved()
+            response = await apiClient.getFinancierApproved(filters.search, currentPage, perPage)
             break
           case 'rejected':
-            response = await apiClient.getFinancierRejected()
+            response = await apiClient.getFinancierRejected(filters.search, currentPage, perPage)
             break
         }
       } else if (user.role === UserRole.MVD) {
         switch (filters.status) {
           case 'pending':
-            response = await apiClient.getMvdPending()
+            response = await apiClient.getMvdPending(filters.search, currentPage, perPage)
             break
           case 'approved':
-            response = await apiClient.getMvdApproved()
+            response = await apiClient.getMvdApproved(filters.search, currentPage, perPage)
             break
           case 'rejected':
-            response = await apiClient.getMvdRejected()
+            response = await apiClient.getMvdRejected(filters.search, currentPage, perPage)
             break
         }
       }
 
       if (response?.statusCode === 200 && response.data) {
-        setAllApplications(response.data.applications)
-        setApplications(response.data.applications)
+        setApplications(response.data.applications || [])
+        setTotalItems(response.data.pagination?.total || 0)
+        setTotalPages(response.data.pagination?.total_pages || 0)
+        setCurrentPage(response.data.pagination?.page || 1)
       } else {
+        setApplications([])
+        setTotalItems(0)
+        setTotalPages(0)
         setError(response?.error || "Ошибка загрузки заявок")
       }
     } catch (error) {
       console.error('Error loading applications:', error)
+      setApplications([])
+      setTotalItems(0)
+      setTotalPages(0)
       setError("Произошла ошибка при загрузке заявок")
     } finally {
       setIsLoadingApplications(false)
     }
-  }, [user, filters.status])
+  }, [user, filters.status, filters.search, currentPage, perPage])
 
-  // Load applications when user or status changes
+  // Reset to page 1 when status or search changes
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [filters.status, filters.search])
+
+  // Load applications when dependencies change
   useEffect(() => {
     if (user && isAuthenticated) {
       loadApplications()
     }
-  }, [user, isAuthenticated, loadApplications, filters.status])
-
-  // Filter applications locally based on search
-  useEffect(() => {
-    if (!filters.search.trim()) {
-      setApplications(allApplications)
-    } else {
-      const filtered = allApplications.filter(app => 
-        app.first_name.toLowerCase().includes(filters.search.toLowerCase()) ||
-        app.last_name.toLowerCase().includes(filters.search.toLowerCase()) ||
-        app.phone_number.includes(filters.search) ||
-        (app.iin && app.iin.includes(filters.search)) ||
-        (app.passport_number && app.passport_number.includes(filters.search))
-      )
-      setApplications(filtered)
-    }
-  }, [allApplications, filters.search])
+  }, [user, isAuthenticated, loadApplications])
 
   // Block page scroll when modal is open
   useEffect(() => {
@@ -363,18 +365,105 @@ export default function VerificationPage() {
                   <p className="text-[#666666]">Загрузка заявок...</p>
                 </CardContent>
               </Card>
-            ) : applications.length > 0 ? (
-              applications.map((application) => (
-                <UserCard
-                  key={application.application_id}
-                  application={application}
-                  onApprove={handleApprove}
-                  onReject={handleRejectUser}
-                  showActions={filters.status === 'pending'}
-                  forceStatus={filters.status}  // Force the status based on current tab
-                  userRole={user?.role === UserRole.FINANCIER ? 'financier' : user?.role === UserRole.MVD ? 'mvd' : undefined}
-                />
-              ))
+            ) : applications && applications.length > 0 ? (
+              <>
+                {applications.map((application) => (
+                  <UserCard
+                    key={application.application_id}
+                    application={application}
+                    onApprove={handleApprove}
+                    onReject={handleRejectUser}
+                    showActions={filters.status === 'pending'}
+                    forceStatus={filters.status}  // Force the status based on current tab
+                    userRole={user?.role === UserRole.FINANCIER ? 'financier' : user?.role === UserRole.MVD ? 'mvd' : undefined}
+                  />
+                ))}
+                
+                {/* Pagination Controls */}
+                {totalPages > 1 && (
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6">
+                    <div className="text-sm text-[#666666]">
+                      Показано {((currentPage - 1) * perPage) + 1}-{Math.min(currentPage * perPage, totalItems)} из {totalItems}
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      {/* Previous Button */}
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        disabled={currentPage === 1}
+                        className={`flex items-center justify-center w-10 h-10 rounded-lg border transition-all ${
+                          currentPage === 1
+                            ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
+                            : 'bg-white border-[#E5E5E5] text-[#191919] hover:bg-[#F8F8F8] hover:border-[#191919]'
+                        }`}
+                      >
+                        <HiChevronLeft className="w-5 h-5" />
+                      </button>
+                      
+                      {/* Page Numbers */}
+                      <div className="flex items-center gap-2">
+                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                          let pageNum
+                          if (totalPages <= 5) {
+                            pageNum = i + 1
+                          } else if (currentPage <= 3) {
+                            pageNum = i + 1
+                          } else if (currentPage >= totalPages - 2) {
+                            pageNum = totalPages - 4 + i
+                          } else {
+                            pageNum = currentPage - 2 + i
+                          }
+                          
+                          return (
+                            <button
+                              key={pageNum}
+                              onClick={() => setCurrentPage(pageNum)}
+                              className={`w-10 h-10 rounded-lg border transition-all ${
+                                currentPage === pageNum
+                                  ? 'bg-[#191919] border-[#191919] text-white font-medium'
+                                  : 'bg-white border-[#E5E5E5] text-[#191919] hover:bg-[#F8F8F8] hover:border-[#191919]'
+                              }`}
+                            >
+                              {pageNum}
+                            </button>
+                          )
+                        })}
+                      </div>
+                      
+                      {/* Next Button */}
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                        disabled={currentPage === totalPages}
+                        className={`flex items-center justify-center w-10 h-10 rounded-lg border transition-all ${
+                          currentPage === totalPages
+                            ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
+                            : 'bg-white border-[#E5E5E5] text-[#191919] hover:bg-[#F8F8F8] hover:border-[#191919]'
+                        }`}
+                      >
+                        <HiChevronRight className="w-5 h-5" />
+                      </button>
+                    </div>
+                    
+                    {/* Per Page Selector */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-[#666666]">На странице:</span>
+                      <select
+                        value={perPage}
+                        onChange={(e) => {
+                          setPerPage(Number(e.target.value))
+                          setCurrentPage(1)
+                        }}
+                        className="px-3 py-2 border border-[#E5E5E5] rounded-lg bg-white text-[#191919] focus:ring-2 focus:ring-[#191919]/20 focus:border-[#191919] transition-all"
+                      >
+                        <option value={10}>10</option>
+                        <option value={20}>20</option>
+                        <option value={50}>50</option>
+                        <option value={100}>100</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </>
             ) : (
               <Card>
                 <CardContent className="p-8 sm:p-12 text-center">

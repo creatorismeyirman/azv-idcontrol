@@ -152,23 +152,29 @@ class ApiClient {
   }
 
   // Financier Methods
-  async getFinancierPending(search?: string): Promise<ApiResponse<FinancierPendingResponse>> {
+  async getFinancierPending(search?: string, page: number = 1, perPage: number = 10): Promise<ApiResponse<FinancierPendingResponse>> {
     const params = new URLSearchParams()
     if (search) params.append('search', search)
+    params.append('page', page.toString())
+    params.append('per_page', perPage.toString())
     
     return this.request<FinancierPendingResponse>(`/financier/pending?${params.toString()}`)
   }
 
-  async getFinancierApproved(search?: string): Promise<ApiResponse<FinancierApprovedResponse>> {
+  async getFinancierApproved(search?: string, page: number = 1, perPage: number = 10): Promise<ApiResponse<FinancierApprovedResponse>> {
     const params = new URLSearchParams()
     if (search) params.append('search', search)
+    params.append('page', page.toString())
+    params.append('per_page', perPage.toString())
     
     return this.request<FinancierApprovedResponse>(`/financier/approved?${params.toString()}`)
   }
 
-  async getFinancierRejected(search?: string): Promise<ApiResponse<FinancierRejectedResponse>> {
+  async getFinancierRejected(search?: string, page: number = 1, perPage: number = 10): Promise<ApiResponse<FinancierRejectedResponse>> {
     const params = new URLSearchParams()
     if (search) params.append('search', search)
+    params.append('page', page.toString())
+    params.append('per_page', perPage.toString())
     
     return this.request<FinancierRejectedResponse>(`/financier/rejected?${params.toString()}`)
   }
@@ -199,23 +205,29 @@ class ApiClient {
   }
 
   // MVD Methods
-  async getMvdPending(search?: string): Promise<ApiResponse<MvdPendingResponse>> {
+  async getMvdPending(search?: string, page: number = 1, perPage: number = 10): Promise<ApiResponse<MvdPendingResponse>> {
     const params = new URLSearchParams()
     if (search) params.append('search', search)
+    params.append('page', page.toString())
+    params.append('per_page', perPage.toString())
     
     return this.request<MvdPendingResponse>(`/mvd/pending?${params.toString()}`)
   }
 
-  async getMvdApproved(search?: string): Promise<ApiResponse<MvdApprovedResponse>> {
+  async getMvdApproved(search?: string, page: number = 1, perPage: number = 10): Promise<ApiResponse<MvdApprovedResponse>> {
     const params = new URLSearchParams()
     if (search) params.append('search', search)
+    params.append('page', page.toString())
+    params.append('per_page', perPage.toString())
     
     return this.request<MvdApprovedResponse>(`/mvd/approved?${params.toString()}`)
   }
 
-  async getMvdRejected(search?: string): Promise<ApiResponse<MvdRejectedResponse>> {
+  async getMvdRejected(search?: string, page: number = 1, perPage: number = 10): Promise<ApiResponse<MvdRejectedResponse>> {
     const params = new URLSearchParams()
     if (search) params.append('search', search)
+    params.append('page', page.toString())
+    params.append('per_page', perPage.toString())
     
     return this.request<MvdRejectedResponse>(`/mvd/rejected?${params.toString()}`)
   }
