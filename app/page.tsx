@@ -129,8 +129,8 @@ export default function VerificationPage() {
   // Сортировка на фронтенде - применяется локально без запросов к бэкенду
   const sortedApplications = useMemo(() => {
     return [...applications].sort((a, b) => {
-      let aValue: any
-      let bValue: any
+      let aValue: number | string
+      let bValue: number | string
       
       switch (filters.sortBy) {
         case 'updated_at':

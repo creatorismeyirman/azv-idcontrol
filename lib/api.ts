@@ -206,7 +206,7 @@ class ApiClient {
 
   async recheckFinancierApplication(
     applicationId: number
-  ): Promise<ApiResponse<any>> {
+  ): Promise<ApiResponse<{ message: string; application_id: string; user_id: string; user_role: string; financier_status: string; mvd_status: string }>> {
     return this.request(
       `/financier/recheck/${applicationId}`,
       { method: 'POST' }
