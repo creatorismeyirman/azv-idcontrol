@@ -204,6 +204,15 @@ class ApiClient {
     )
   }
 
+  async recheckFinancierApplication(
+    applicationId: number
+  ): Promise<ApiResponse<any>> {
+    return this.request(
+      `/financier/recheck/${applicationId}`,
+      { method: 'POST' }
+    )
+  }
+
   // MVD Methods
   async getMvdPending(search?: string, page: number = 1, perPage: number = 10): Promise<ApiResponse<MvdPendingResponse>> {
     const params = new URLSearchParams()

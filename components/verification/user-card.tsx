@@ -29,6 +29,7 @@ interface UserCardProps {
   application: Application
   onApprove: (application: Application) => void
   onReject: (applicationId: number, reason: string, reasonType?: 'financial' | 'documents' | 'certificates') => void
+  onRecheck?: (applicationId: number) => void  // Add recheck handler
   showActions?: boolean
   forceStatus?: 'pending' | 'approved' | 'rejected'  // Explicit status override
   userRole?: 'financier' | 'mvd'  // Add user role to determine rejection type
@@ -37,7 +38,8 @@ interface UserCardProps {
 export function UserCard({ 
   application, 
   onApprove, 
-  onReject, 
+  onReject,
+  onRecheck,
   showActions = true,
   forceStatus,
   userRole
@@ -175,16 +177,22 @@ export function UserCard({
   }
 
   const handleReject = () => {
-    if (rejectionReason.trim()) {
-      // For financier, require reason type selection
-      if (userRole === 'financier' && !rejectionReasonType) {
-        return
-      }
-      onReject(application.application_id, rejectionReason, rejectionReasonType || undefined)
-      setShowRejectModal(false)
-      setRejectionReason("")
-      setRejectionReasonType(null)
+    // For financier, require reason type selection
+    if (userRole === 'financier' && !rejectionReasonType) {
+      return
     }
+    
+    // Require reason only for 'documents' and 'certificates' types
+    const requiresReason = rejectionReasonType === 'documents' || rejectionReasonType === 'certificates'
+    if (requiresReason && !rejectionReason.trim()) {
+      return
+    }
+    
+    // Reject with reason (or empty string if not required)
+    onReject(application.application_id, rejectionReason.trim() || '', rejectionReasonType || undefined)
+    setShowRejectModal(false)
+    setRejectionReason("")
+    setRejectionReasonType(null)
   }
 
   const handleImageClick = (index: number) => {
@@ -872,7 +880,7 @@ export function UserCard({
           )}
 
 
-          {/* Actions */}
+          {/* Actions for Pending */}
           {showActions && getApplicationStatus() === 'pending' && (
             <div className="space-y-3 sm:space-y-4 pt-3 sm:pt-4 border-t border-[#E5E5E5]">
               <div className="flex flex-col sm:flex-row gap-2 sm:gap-2">
@@ -893,6 +901,20 @@ export function UserCard({
                   Отклонить
                 </Button>
               </div>
+            </div>
+          )}
+
+          {/* Actions for Approved - Recheck Documents */}
+          {getApplicationStatus() === 'approved' && userRole === 'financier' && onRecheck && (
+            <div className="space-y-3 sm:space-y-4 pt-3 sm:pt-4 border-t border-[#E5E5E5]">
+              <Button
+                variant="outline"
+                onClick={() => onRecheck(application.application_id)}
+                className="w-full py-2 sm:py-3 text-xs sm:text-sm lg:text-base border-[#FF9800] text-[#FF9800] hover:bg-[#FF9800] hover:text-white transition-colors"
+              >
+                <HiClipboardDocumentCheck className="w-4 h-4 mr-1 sm:mr-2" />
+                Заново загрузить документы
+              </Button>
             </div>
           )}
         </CardContent>
@@ -1046,12 +1068,25 @@ export function UserCard({
               
               <label className="block text-sm font-medium text-[#191919] mb-2">
                 Укажите причину отклонения заявки
+                {userRole === 'financier' && rejectionReasonType === 'financial' && (
+                  <span className="text-gray-500 font-normal ml-1">(необязательно)</span>
+                )}
+                {userRole === 'mvd' && (
+                  <span className="text-gray-500 font-normal ml-1">(необязательно)</span>
+                )}
+                {userRole === 'financier' && (rejectionReasonType === 'documents' || rejectionReasonType === 'certificates') && (
+                  <span className="text-red-500 font-normal ml-1">*</span>
+                )}
               </label>
               <textarea
                 value={rejectionReason}
                 onChange={(e) => setRejectionReason(e.target.value)}
-                placeholder="Введите причину отклонения..."
-                className="w-full px-3 sm:px-4 py-2.5 sm:py-3 border border-[#E5E5E5] rounded-lg sm:rounded-xl focus:ring-2 focus:ring-[#D32F2F]/20 focus:border-[#D32F2F] transition-all duration-300 resize-none text-sm sm:text-base text-black placeholder:text-[#191919]"
+                placeholder={
+                  userRole === 'financier' && (rejectionReasonType === 'documents' || rejectionReasonType === 'certificates')
+                    ? "Обязательно укажите причину отклонения..."
+                    : "Введите причину отклонения (необязательно)..."
+                }
+                className="w-full px-3 sm:px-4 py-2.5 sm:py-3 border border-[#E5E5E5] rounded-lg sm:rounded-xl focus:ring-2 focus:ring-[#D32F2F]/20 focus:border-[#D32F2F] transition-all duration-300 resize-none text-sm sm:text-base text-black placeholder:text-gray-400"
                 rows={4}
               />
             </div>
@@ -1065,9 +1100,26 @@ export function UserCard({
               </button>
               <button
                 onClick={handleReject}
-                disabled={!rejectionReason.trim() || (userRole === 'financier' && !rejectionReasonType)}
+                disabled={(() => {
+                  // For financier, always require reason type selection
+                  if (userRole === 'financier' && !rejectionReasonType) return true
+                  
+                  // Require reason only for 'documents' and 'certificates'
+                  const requiresReason = rejectionReasonType === 'documents' || rejectionReasonType === 'certificates'
+                  if (requiresReason && !rejectionReason.trim()) return true
+                  
+                  return false
+                })()}
                 className={`flex-1 px-4 py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-semibold transition-all duration-300 text-sm sm:text-base ${
-                  rejectionReason.trim() && (!userRole || userRole !== 'financier' || rejectionReasonType)
+                  (() => {
+                    // For financier, check requirements
+                    if (userRole === 'financier') {
+                      if (!rejectionReasonType) return false
+                      const requiresReason = rejectionReasonType === 'documents' || rejectionReasonType === 'certificates'
+                      if (requiresReason && !rejectionReason.trim()) return false
+                    }
+                    return true
+                  })()
                     ? "bg-[#D32F2F] text-white hover:bg-[#F44336]"
                     : "bg-[#E5E5E5] text-[#999999] cursor-not-allowed"
                 }`}

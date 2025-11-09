@@ -1,22 +1,26 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { UserCard } from "@/components/verification/user-card"
 import { ApprovalModal } from "@/components/modals/approval-modal"
 import { useAuth } from "@/contexts/AuthContext"
 import { Application, UserRole } from "@/types/api"
-import { HiUsers, HiChevronLeft, HiChevronRight } from "react-icons/hi2"
-import { HiSearch, HiLogout } from "react-icons/hi"
+import { HiUsers, HiChevronLeft, HiChevronRight, HiArrowsUpDown, HiClipboardDocumentCheck } from "react-icons/hi2"
+import { HiSearch, HiLogout, HiSortAscending, HiSortDescending } from "react-icons/hi"
 import Image from "next/image"
 import apiClient from "@/lib/api"
 
 type ApplicationStatus = 'pending' | 'approved' | 'rejected'
+type SortField = 'updated_at' | 'created_at' | 'phone_number' | 'iin'
+type SortOrder = 'asc' | 'desc'
 
 interface ApplicationFilters {
   status: ApplicationStatus
   search: string
+  sortBy: SortField
+  sortOrder: SortOrder
 }
 
 export default function VerificationPage() {
@@ -25,13 +29,20 @@ export default function VerificationPage() {
   
   const [filters, setFilters] = useState<ApplicationFilters>({
     status: 'pending',
-    search: ''
+    search: '',
+    sortBy: 'updated_at',
+    sortOrder: 'desc'
   })
   const [selectedUserForApproval, setSelectedUserForApproval] = useState<Application | null>(null)
   const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false)
   const [applications, setApplications] = useState<Application[]>([])
   const [isLoadingApplications, setIsLoadingApplications] = useState(false)
   const [error, setError] = useState("")
+  
+  // Recheck modal state
+  const [isRecheckModalOpen, setIsRecheckModalOpen] = useState(false)
+  const [selectedApplicationForRecheck, setSelectedApplicationForRecheck] = useState<number | null>(null)
+  const [isRecheckLoading, setIsRecheckLoading] = useState(false)
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
@@ -103,7 +114,7 @@ export default function VerificationPage() {
     }
   }, [user, filters.status, filters.search, currentPage, perPage])
 
-  // Reset to page 1 when status or search changes
+  // Reset to page 1 when status or search changes (но не при изменении сортировки)
   useEffect(() => {
     setCurrentPage(1)
   }, [filters.status, filters.search])
@@ -115,9 +126,45 @@ export default function VerificationPage() {
     }
   }, [user, isAuthenticated, loadApplications])
 
+  // Сортировка на фронтенде - применяется локально без запросов к бэкенду
+  const sortedApplications = useMemo(() => {
+    return [...applications].sort((a, b) => {
+      let aValue: any
+      let bValue: any
+      
+      switch (filters.sortBy) {
+        case 'updated_at':
+          aValue = new Date(a.updated_at || 0).getTime()
+          bValue = new Date(b.updated_at || 0).getTime()
+          break
+        case 'created_at':
+          aValue = new Date(a.created_at || 0).getTime()
+          bValue = new Date(b.created_at || 0).getTime()
+          break
+        case 'phone_number':
+          aValue = a.phone_number || ''
+          bValue = b.phone_number || ''
+          break
+        case 'iin':
+          aValue = a.iin || a.passport_number || ''
+          bValue = b.iin || b.passport_number || ''
+          break
+        default:
+          aValue = new Date(a.updated_at || 0).getTime()
+          bValue = new Date(b.updated_at || 0).getTime()
+      }
+      
+      if (filters.sortOrder === 'asc') {
+        return aValue > bValue ? 1 : aValue < bValue ? -1 : 0
+      } else {
+        return aValue < bValue ? 1 : aValue > bValue ? -1 : 0
+      }
+    })
+  }, [applications, filters.sortBy, filters.sortOrder])
+
   // Block page scroll when modal is open
   useEffect(() => {
-    if (isApprovalModalOpen) {
+    if (isApprovalModalOpen || isRecheckModalOpen) {
       document.body.style.overflow = 'hidden'
     } else {
       document.body.style.overflow = 'unset'
@@ -127,7 +174,7 @@ export default function VerificationPage() {
     return () => {
       document.body.style.overflow = 'unset'
     }
-  }, [isApprovalModalOpen])
+  }, [isApprovalModalOpen, isRecheckModalOpen])
 
   const handleApprove = (application: Application) => {
     setSelectedUserForApproval(application)
@@ -190,6 +237,35 @@ export default function VerificationPage() {
     } catch (error) {
       console.error('Error rejecting application:', error)
       setError("Произошла ошибка при отклонении заявки")
+    }
+  }
+
+  const handleRecheckDocuments = (applicationId: number) => {
+    if (!user || user.role !== UserRole.FINANCIER) return
+    setSelectedApplicationForRecheck(applicationId)
+    setIsRecheckModalOpen(true)
+  }
+
+  const confirmRecheck = async () => {
+    if (!selectedApplicationForRecheck) return
+
+    setIsRecheckLoading(true)
+    try {
+      const response = await apiClient.recheckFinancierApplication(selectedApplicationForRecheck)
+
+      if (response?.statusCode === 200) {
+        // Reload applications to get updated data
+        await loadApplications()
+        setIsRecheckModalOpen(false)
+        setSelectedApplicationForRecheck(null)
+      } else {
+        setError(response?.error || "Ошибка при запросе повторной проверки")
+      }
+    } catch (error) {
+      console.error('Error requesting recheck:', error)
+      setError("Произошла ошибка при запросе повторной проверки")
+    } finally {
+      setIsRecheckLoading(false)
     }
   }
 
@@ -356,6 +432,133 @@ export default function VerificationPage() {
             </div>
           </div>
 
+          {/* Sort Controls */}
+          <div className="bg-white p-4 rounded-xl shadow-sm">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+              <div className="flex items-center gap-2 text-sm text-[#666666]">
+                <HiArrowsUpDown className="w-5 h-5" />
+                <span className="font-medium">Сортировка:</span>
+              </div>
+              
+              <div className="flex flex-col sm:flex-row gap-3 flex-1 w-full sm:w-auto">
+                {/* Sort Field Selector */}
+                <select
+                  value={filters.sortBy}
+                  onChange={(e) => setFilters(prev => ({ ...prev, sortBy: e.target.value as SortField }))}
+                  className="flex-1 px-4 py-2.5 border border-[#E5E5E5] rounded-lg bg-white text-[#191919] focus:ring-2 focus:ring-[#191919]/20 focus:border-[#191919] transition-all text-sm"
+                >
+                  <option value="updated_at">По времени обновления</option>
+                  <option value="created_at">По дате добавления</option>
+                  <option value="phone_number">По номеру телефона</option>
+                  <option value="iin">По ИИН/Паспорту</option>
+                </select>
+                
+                {/* Sort Order Toggle */}
+                <button
+                  onClick={() => setFilters(prev => ({ ...prev, sortOrder: prev.sortOrder === 'asc' ? 'desc' : 'asc' }))}
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 border border-[#E5E5E5] rounded-lg bg-white text-[#191919] hover:bg-[#F8F8F8] hover:border-[#191919] transition-all text-sm font-medium min-w-[140px]"
+                >
+                  {filters.sortOrder === 'asc' ? (
+                    <>
+                      <HiSortAscending className="w-5 h-5" />
+                      <span>По возрастанию</span>
+                    </>
+                  ) : (
+                    <>
+                      <HiSortDescending className="w-5 h-5" />
+                      <span>По убыванию</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Pagination Controls - Top */}
+          {totalPages > 1 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-xl shadow-sm">
+              <div className="text-sm text-[#666666]">
+                Показано {((currentPage - 1) * perPage) + 1}-{Math.min(currentPage * perPage, totalItems)} из {totalItems}
+              </div>
+              
+              <div className="flex items-center gap-2">
+                {/* Previous Button */}
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className={`flex items-center justify-center w-10 h-10 rounded-lg border transition-all ${
+                    currentPage === 1
+                      ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
+                      : 'bg-white border-[#E5E5E5] text-[#191919] hover:bg-[#F8F8F8] hover:border-[#191919]'
+                  }`}
+                >
+                  <HiChevronLeft className="w-5 h-5" />
+                </button>
+                
+                {/* Page Numbers */}
+                <div className="flex items-center gap-2">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum
+                    if (totalPages <= 5) {
+                      pageNum = i + 1
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i
+                    } else {
+                      pageNum = currentPage - 2 + i
+                    }
+                    
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => setCurrentPage(pageNum)}
+                        className={`w-10 h-10 rounded-lg border transition-all ${
+                          currentPage === pageNum
+                            ? 'bg-[#191919] border-[#191919] text-white font-medium'
+                            : 'bg-white border-[#E5E5E5] text-[#191919] hover:bg-[#F8F8F8] hover:border-[#191919]'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    )
+                  })}
+                </div>
+                
+                {/* Next Button */}
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className={`flex items-center justify-center w-10 h-10 rounded-lg border transition-all ${
+                    currentPage === totalPages
+                      ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
+                      : 'bg-white border-[#E5E5E5] text-[#191919] hover:bg-[#F8F8F8] hover:border-[#191919]'
+                  }`}
+                >
+                  <HiChevronRight className="w-5 h-5" />
+                </button>
+              </div>
+              
+              {/* Per Page Selector */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-[#666666]">На странице:</span>
+                <select
+                  value={perPage}
+                  onChange={(e) => {
+                    setPerPage(Number(e.target.value))
+                    setCurrentPage(1)
+                  }}
+                  className="px-3 py-2 border border-[#E5E5E5] rounded-lg bg-white text-[#191919] focus:ring-2 focus:ring-[#191919]/20 focus:border-[#191919] transition-all"
+                >
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
+            </div>
+          )}
+
           {/* Applications List */}
           <div className="space-y-4 sm:space-y-6">
             {isLoadingApplications ? (
@@ -365,104 +568,20 @@ export default function VerificationPage() {
                   <p className="text-[#666666]">Загрузка заявок...</p>
                 </CardContent>
               </Card>
-            ) : applications && applications.length > 0 ? (
+            ) : sortedApplications && sortedApplications.length > 0 ? (
               <>
-                {applications.map((application) => (
+                {sortedApplications.map((application) => (
                   <UserCard
                     key={application.application_id}
                     application={application}
                     onApprove={handleApprove}
                     onReject={handleRejectUser}
+                    onRecheck={handleRecheckDocuments}
                     showActions={filters.status === 'pending'}
                     forceStatus={filters.status}  // Force the status based on current tab
                     userRole={user?.role === UserRole.FINANCIER ? 'financier' : user?.role === UserRole.MVD ? 'mvd' : undefined}
                   />
                 ))}
-                
-                {/* Pagination Controls */}
-                {totalPages > 1 && (
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6">
-                    <div className="text-sm text-[#666666]">
-                      Показано {((currentPage - 1) * perPage) + 1}-{Math.min(currentPage * perPage, totalItems)} из {totalItems}
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      {/* Previous Button */}
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                        disabled={currentPage === 1}
-                        className={`flex items-center justify-center w-10 h-10 rounded-lg border transition-all ${
-                          currentPage === 1
-                            ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
-                            : 'bg-white border-[#E5E5E5] text-[#191919] hover:bg-[#F8F8F8] hover:border-[#191919]'
-                        }`}
-                      >
-                        <HiChevronLeft className="w-5 h-5" />
-                      </button>
-                      
-                      {/* Page Numbers */}
-                      <div className="flex items-center gap-2">
-                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                          let pageNum
-                          if (totalPages <= 5) {
-                            pageNum = i + 1
-                          } else if (currentPage <= 3) {
-                            pageNum = i + 1
-                          } else if (currentPage >= totalPages - 2) {
-                            pageNum = totalPages - 4 + i
-                          } else {
-                            pageNum = currentPage - 2 + i
-                          }
-                          
-                          return (
-                            <button
-                              key={pageNum}
-                              onClick={() => setCurrentPage(pageNum)}
-                              className={`w-10 h-10 rounded-lg border transition-all ${
-                                currentPage === pageNum
-                                  ? 'bg-[#191919] border-[#191919] text-white font-medium'
-                                  : 'bg-white border-[#E5E5E5] text-[#191919] hover:bg-[#F8F8F8] hover:border-[#191919]'
-                              }`}
-                            >
-                              {pageNum}
-                            </button>
-                          )
-                        })}
-                      </div>
-                      
-                      {/* Next Button */}
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                        disabled={currentPage === totalPages}
-                        className={`flex items-center justify-center w-10 h-10 rounded-lg border transition-all ${
-                          currentPage === totalPages
-                            ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
-                            : 'bg-white border-[#E5E5E5] text-[#191919] hover:bg-[#F8F8F8] hover:border-[#191919]'
-                        }`}
-                      >
-                        <HiChevronRight className="w-5 h-5" />
-                      </button>
-                    </div>
-                    
-                    {/* Per Page Selector */}
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-[#666666]">На странице:</span>
-                      <select
-                        value={perPage}
-                        onChange={(e) => {
-                          setPerPage(Number(e.target.value))
-                          setCurrentPage(1)
-                        }}
-                        className="px-3 py-2 border border-[#E5E5E5] rounded-lg bg-white text-[#191919] focus:ring-2 focus:ring-[#191919]/20 focus:border-[#191919] transition-all"
-                      >
-                        <option value={10}>10</option>
-                        <option value={20}>20</option>
-                        <option value={50}>50</option>
-                        <option value={100}>100</option>
-                      </select>
-                    </div>
-                  </div>
-                )}
               </>
             ) : (
               <Card>
@@ -492,6 +611,73 @@ export default function VerificationPage() {
         userRole={user?.role || UserRole.FINANCIER}
         onApprove={handleApproveUser}
       />
+
+      {/* Recheck Documents Confirmation Modal */}
+      {isRecheckModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-full bg-[#FF9800]/10 flex items-center justify-center flex-shrink-0">
+                <HiClipboardDocumentCheck className="w-6 h-6 text-[#FF9800]" />
+              </div>
+              <h3 className="text-xl font-bold text-[#191919]">
+                Запросить повторную проверку?
+              </h3>
+            </div>
+
+            <div className="space-y-3 mb-6">
+              <p className="text-[#666666] text-sm leading-relaxed">
+                При подтверждении:
+              </p>
+              <ul className="space-y-2 text-sm text-[#666666]">
+                <li className="flex items-start gap-2">
+                  <span className="text-[#FF9800] mt-0.5">•</span>
+                  <span>Заявка будет переведена в статус <strong>PENDINGTOFIRST</strong></span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-[#FF9800] mt-0.5">•</span>
+                  <span>Все одобрения (финансиста и МВД) будут сняты</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-[#FF9800] mt-0.5">•</span>
+                  <span>Пользователю придется заново загрузить документы</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-[#FF9800] mt-0.5">•</span>
+                  <span>Пользователь получит уведомление</span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setIsRecheckModalOpen(false)
+                  setSelectedApplicationForRecheck(null)
+                }}
+                disabled={isRecheckLoading}
+                className="flex-1 px-4 py-3 rounded-xl border-2 border-[#E5E5E5] text-[#666666] font-medium hover:bg-[#F8F8F8] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={confirmRecheck}
+                disabled={isRecheckLoading}
+                className="flex-1 px-4 py-3 rounded-xl bg-[#FF9800] text-white font-medium hover:bg-[#F57C00] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isRecheckLoading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Отправка...
+                  </>
+                ) : (
+                  'Подтвердить'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
