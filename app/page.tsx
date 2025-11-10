@@ -624,7 +624,6 @@ export default function VerificationPage() {
                 Запросить повторную проверку?
               </h3>
             </div>
-
             <div className="space-y-3 mb-6">
               <p className="text-[#666666] text-sm leading-relaxed">
                 При подтверждении:
