@@ -597,6 +597,101 @@ export default function VerificationPage() {
               </Card>
             )}
           </div>
+
+          {/* Pagination Controls - Bottom */}
+          {totalPages > 1 && !isLoadingApplications && sortedApplications && sortedApplications.length > 0 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-xl shadow-sm">
+              <div className="text-sm text-[#666666]">
+                Показано {((currentPage - 1) * perPage) + 1}-{Math.min(currentPage * perPage, totalItems)} из {totalItems}
+              </div>
+              
+              <div className="flex items-center gap-2">
+                {/* Previous Button */}
+                <button
+                  onClick={() => {
+                    setCurrentPage(prev => Math.max(1, prev - 1))
+                    window.scrollTo({ top: 0, behavior: 'smooth' })
+                  }}
+                  disabled={currentPage === 1}
+                  className={`flex items-center justify-center w-10 h-10 rounded-lg border transition-all ${
+                    currentPage === 1
+                      ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
+                      : 'bg-white border-[#E5E5E5] text-[#191919] hover:bg-[#F8F8F8] hover:border-[#191919]'
+                  }`}
+                >
+                  <HiChevronLeft className="w-5 h-5" />
+                </button>
+                
+                {/* Page Numbers */}
+                <div className="flex items-center gap-2">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum
+                    if (totalPages <= 5) {
+                      pageNum = i + 1
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i
+                    } else {
+                      pageNum = currentPage - 2 + i
+                    }
+                    
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => {
+                          setCurrentPage(pageNum)
+                          window.scrollTo({ top: 0, behavior: 'smooth' })
+                        }}
+                        className={`w-10 h-10 rounded-lg border transition-all ${
+                          currentPage === pageNum
+                            ? 'bg-[#191919] border-[#191919] text-white font-medium'
+                            : 'bg-white border-[#E5E5E5] text-[#191919] hover:bg-[#F8F8F8] hover:border-[#191919]'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    )
+                  })}
+                </div>
+                
+                {/* Next Button */}
+                <button
+                  onClick={() => {
+                    setCurrentPage(prev => Math.min(totalPages, prev + 1))
+                    window.scrollTo({ top: 0, behavior: 'smooth' })
+                  }}
+                  disabled={currentPage === totalPages}
+                  className={`flex items-center justify-center w-10 h-10 rounded-lg border transition-all ${
+                    currentPage === totalPages
+                      ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
+                      : 'bg-white border-[#E5E5E5] text-[#191919] hover:bg-[#F8F8F8] hover:border-[#191919]'
+                  }`}
+                >
+                  <HiChevronRight className="w-5 h-5" />
+                </button>
+              </div>
+              
+              {/* Per Page Selector */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-[#666666]">На странице:</span>
+                <select
+                  value={perPage}
+                  onChange={(e) => {
+                    setPerPage(Number(e.target.value))
+                    setCurrentPage(1)
+                    window.scrollTo({ top: 0, behavior: 'smooth' })
+                  }}
+                  className="px-3 py-2 border border-[#E5E5E5] rounded-lg bg-white text-[#191919] focus:ring-2 focus:ring-[#191919]/20 focus:border-[#191919] transition-all"
+                >
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

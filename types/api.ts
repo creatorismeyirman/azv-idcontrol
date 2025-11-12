@@ -60,6 +60,28 @@ export enum UserRole {
   REJECTED = "rejected"
 }
 
+// Guaranteed Client Types (clients for whom this user is a guarantor)
+export interface GuaranteedClient {
+  sid: string
+  first_name: string
+  last_name: string
+  middle_name: string | null
+  iin: string | null
+  passport_number: string | null
+  selfie_url: string | null
+}
+
+// Guarantor Types (guarantors for this user)
+export interface Guarantor {
+  sid: string
+  first_name: string
+  last_name: string
+  middle_name: string | null
+  iin: string | null
+  passport_number: string | null
+  selfie_url: string | null
+}
+
 // Application Types
 export interface Application {
   application_id: number
@@ -96,6 +118,8 @@ export interface Application {
   reason?: string | null
   financier_reason?: string | null
   mvd_reason?: string | null
+  guaranteed_clients?: GuaranteedClient[]  // List of clients this user is guarantor for (for approved users)
+  guarantors?: Guarantor[]  // List of guarantors for this user (for rejected/pending users)
 }
 
 export interface ApplicationsResponse {

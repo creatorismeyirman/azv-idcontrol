@@ -19,7 +19,8 @@ import {
   HiEnvelope,
   HiShieldCheck,
   HiClipboardDocument,
-  HiClipboardDocumentCheck
+  HiClipboardDocumentCheck,
+  HiUserGroup
 } from "react-icons/hi2"
 import { HiX } from "react-icons/hi"
 import { HiChevronLeft, HiChevronRight } from "react-icons/hi2"
@@ -714,6 +715,192 @@ export function UserCard({
                       <span className="ml-2 flex-shrink-0 text-xs text-gray-400">Не загружен</span>
                     )}
                   </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Guaranteed Clients Section - Only show if user is a guarantor */}
+          {application.guaranteed_clients && application.guaranteed_clients.length > 0 && (
+            <div className="mb-4 sm:mb-6">
+              <div className="bg-blue-50 border border-blue-300 rounded-lg p-3 sm:p-4">
+                <h4 className="text-sm font-medium text-blue-800 mb-3 flex items-center gap-2">
+                  <HiUserGroup className="w-5 h-5" />
+                  Является гарантом для ({application.guaranteed_clients.length})
+                </h4>
+                <div className="space-y-2 sm:space-y-3">
+                  {application.guaranteed_clients.map((client) => (
+                    <div 
+                      key={client.sid} 
+                      className="bg-white border border-blue-200 rounded-lg p-3 hover:border-blue-400 transition-colors"
+                    >
+                      <div className="flex items-start gap-3">
+                        {/* Client Photo */}
+                        <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                          {client.selfie_url ? (
+                            <img
+                              src={getImageUrl(client.selfie_url)}
+                              alt={`${client.first_name} ${client.last_name}`}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none'
+                              }}
+                            />
+                          ) : null}
+                          <HiUser className={`w-6 h-6 text-gray-400 ${client.selfie_url ? 'hidden' : ''}`} />
+                        </div>
+                        
+                        {/* Client Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h5 className="text-sm sm:text-base font-semibold text-gray-900 truncate">
+                              {client.first_name} {client.middle_name || ''} {client.last_name}
+                            </h5>
+                          </div>
+                          
+                          <div className="space-y-1">
+                            {client.iin && (
+                              <div className="flex items-center gap-2">
+                                <HiCreditCard className="w-3 h-3 text-gray-500 flex-shrink-0" />
+                                <span className="text-xs text-gray-600">ИИН: {client.iin}</span>
+                                <button
+                                  onClick={() => handleCopyToClipboard(client.iin || '', `client-iin-${client.sid}`)}
+                                  className="flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium transition-all rounded border flex-shrink-0"
+                                  style={{
+                                    backgroundColor: copiedField === `client-iin-${client.sid}` ? '#10b981' : '#f3f4f6',
+                                    color: copiedField === `client-iin-${client.sid}` ? '#ffffff' : '#6b7280',
+                                    borderColor: copiedField === `client-iin-${client.sid}` ? '#10b981' : '#e5e7eb'
+                                  }}
+                                  title="Скопировать"
+                                >
+                                  {copiedField === `client-iin-${client.sid}` ? (
+                                    <HiClipboardDocumentCheck className="w-3 h-3" />
+                                  ) : (
+                                    <HiClipboardDocument className="w-3 h-3" />
+                                  )}
+                                </button>
+                              </div>
+                            )}
+                            {client.passport_number && (
+                              <div className="flex items-center gap-2">
+                                <HiCreditCard className="w-3 h-3 text-gray-500 flex-shrink-0" />
+                                <span className="text-xs text-gray-600">Паспорт: {client.passport_number}</span>
+                                <button
+                                  onClick={() => handleCopyToClipboard(client.passport_number || '', `client-passport-${client.sid}`)}
+                                  className="flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium transition-all rounded border flex-shrink-0"
+                                  style={{
+                                    backgroundColor: copiedField === `client-passport-${client.sid}` ? '#10b981' : '#f3f4f6',
+                                    color: copiedField === `client-passport-${client.sid}` ? '#ffffff' : '#6b7280',
+                                    borderColor: copiedField === `client-passport-${client.sid}` ? '#10b981' : '#e5e7eb'
+                                  }}
+                                  title="Скопировать"
+                                >
+                                  {copiedField === `client-passport-${client.sid}` ? (
+                                    <HiClipboardDocumentCheck className="w-3 h-3" />
+                                  ) : (
+                                    <HiClipboardDocument className="w-3 h-3" />
+                                  )}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Guarantors Section - Only show if user has guarantors */}
+          {application.guarantors && application.guarantors.length > 0 && (
+            <div className="mb-4 sm:mb-6">
+              <div className="bg-purple-50 border border-purple-300 rounded-lg p-3 sm:p-4">
+                <h4 className="text-sm font-medium text-purple-800 mb-3 flex items-center gap-2">
+                  <HiShieldCheck className="w-5 h-5" />
+                  {application.guarantors.length === 1 ? 'Его гарант' : `Его гаранты (${application.guarantors.length})`}
+                </h4>
+                <div className="space-y-2 sm:space-y-3">
+                  {application.guarantors.map((guarantor) => (
+                    <div 
+                      key={guarantor.sid} 
+                      className="bg-white border border-purple-200 rounded-lg p-3 hover:border-purple-400 transition-colors"
+                    >
+                      <div className="flex items-start gap-3">
+                        {/* Guarantor Photo */}
+                        <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                          {guarantor.selfie_url ? (
+                            <img
+                              src={getImageUrl(guarantor.selfie_url)}
+                              alt={`${guarantor.first_name} ${guarantor.last_name}`}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none'
+                              }}
+                            />
+                          ) : null}
+                          <HiUser className={`w-6 h-6 text-gray-400 ${guarantor.selfie_url ? 'hidden' : ''}`} />
+                        </div>
+                        
+                        {/* Guarantor Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h5 className="text-sm sm:text-base font-semibold text-gray-900 truncate">
+                              {guarantor.first_name} {guarantor.middle_name || ''} {guarantor.last_name}
+                            </h5>
+                          </div>
+                          
+                          <div className="space-y-1">
+                            {guarantor.iin && (
+                              <div className="flex items-center gap-2">
+                                <HiCreditCard className="w-3 h-3 text-gray-500 flex-shrink-0" />
+                                <span className="text-xs text-gray-600">ИИН: {guarantor.iin}</span>
+                                <button
+                                  onClick={() => handleCopyToClipboard(guarantor.iin || '', `guarantor-iin-${guarantor.sid}`)}
+                                  className="flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium transition-all rounded border flex-shrink-0"
+                                  style={{
+                                    backgroundColor: copiedField === `guarantor-iin-${guarantor.sid}` ? '#10b981' : '#f3f4f6',
+                                    color: copiedField === `guarantor-iin-${guarantor.sid}` ? '#ffffff' : '#6b7280',
+                                    borderColor: copiedField === `guarantor-iin-${guarantor.sid}` ? '#10b981' : '#e5e7eb'
+                                  }}
+                                  title="Скопировать"
+                                >
+                                  {copiedField === `guarantor-iin-${guarantor.sid}` ? (
+                                    <HiClipboardDocumentCheck className="w-3 h-3" />
+                                  ) : (
+                                    <HiClipboardDocument className="w-3 h-3" />
+                                  )}
+                                </button>
+                              </div>
+                            )}
+                            {guarantor.passport_number && (
+                              <div className="flex items-center gap-2">
+                                <HiCreditCard className="w-3 h-3 text-gray-500 flex-shrink-0" />
+                                <span className="text-xs text-gray-600">Паспорт: {guarantor.passport_number}</span>
+                                <button
+                                  onClick={() => handleCopyToClipboard(guarantor.passport_number || '', `guarantor-passport-${guarantor.sid}`)}
+                                  className="flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium transition-all rounded border flex-shrink-0"
+                                  style={{
+                                    backgroundColor: copiedField === `guarantor-passport-${guarantor.sid}` ? '#10b981' : '#f3f4f6',
+                                    color: copiedField === `guarantor-passport-${guarantor.sid}` ? '#ffffff' : '#6b7280',
+                                    borderColor: copiedField === `guarantor-passport-${guarantor.sid}` ? '#10b981' : '#e5e7eb'
+                                  }}
+                                  title="Скопировать"
+                                >
+                                  {copiedField === `guarantor-passport-${guarantor.sid}` ? (
+                                    <HiClipboardDocumentCheck className="w-3 h-3" />
+                                  ) : (
+                                    <HiClipboardDocument className="w-3 h-3" />
+                                  )}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
