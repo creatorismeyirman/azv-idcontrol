@@ -1,0 +1,23 @@
+services:
+  idcontrol:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Укажите URL вашего backend API
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+    container_name: azv-idcontrol
+    ports:
+      - "3004:3004"
+    environment:
+      # Runtime переменные окружения
+      - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+      - NODE_ENV=production
+    restart: unless-stopped
+    networks:
+      - azv-network
+
+networks:
+  azv-network:
+    driver: bridge
+
