@@ -80,7 +80,7 @@ export class HttpClient {
         }
       })
 
-      process.on('unhandledRejection', (reason: unknown, promise: Promise<unknown>) => {
+      process.on('unhandledRejection', (reason: unknown) => {
         const error = reason instanceof Error ? reason : new Error(String(reason))
         if (this.isNetworkError(error)) {
           console.error('[HTTP Client] Unhandled rejection (network error):', {
@@ -290,9 +290,11 @@ export class HttpClient {
         this.recordSuccess(circuitBreakerKey)
 
         if (!response.ok) {
+          // Type-safe error extraction from response data
+          const errorData = data as { detail?: string; error?: string } | undefined
           return {
             statusCode: response.status,
-            error: (data as any)?.detail || (data as any)?.error || 'Request failed',
+            error: errorData?.detail || errorData?.error || 'Request failed',
             data: data as T,
             headers: response.headers,
           }
