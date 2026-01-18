@@ -15,15 +15,30 @@ import {
   MvdApproveResponse,
   MvdRejectResponse
 } from '@/types/api'
+import { HttpClient, HttpResponse } from './http-client'
+import { getEnvConfig } from './env'
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.azvmotors.kz'
+// Get validated base URL from environment
+const envConfig = getEnvConfig()
+const API_BASE_URL = envConfig.NEXT_PUBLIC_API_BASE_URL
+
+// Create HTTP client instance with proper configuration
+// Export for use in healthcheck endpoint
+export const httpClient = new HttpClient({
+  baseURL: API_BASE_URL,
+  connectTimeout: 3000,      // 3s connection timeout
+  requestTimeout: 10000,      // 10s total timeout
+  maxRetries: 3,              // Max 3 retries
+  retryDelay: 200,            // Initial retry delay 200ms (exponential backoff)
+  circuitBreakerThreshold: 5, // Open circuit after 5 failures
+  circuitBreakerWindow: 60000, // 60s window
+  circuitBreakerCooldown: 30000, // 30s cooldown
+})
 
 class ApiClient {
-  private baseURL: string
   private accessToken: string | null = null
 
-  constructor(baseURL: string) {
-    this.baseURL = baseURL
+  constructor() {
     this.loadTokenFromStorage()
   }
 
@@ -49,10 +64,9 @@ class ApiClient {
     endpoint: string, 
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
-    const url = `${this.baseURL}${endpoint}`
-    
     try {
-      const response = await fetch(url, {
+      // Use the robust HTTP client instead of raw fetch
+      const response: HttpResponse<T> = await httpClient.request<T>(endpoint, {
         ...options,
         headers: {
           ...this.getHeaders(),
@@ -60,22 +74,21 @@ class ApiClient {
         },
       })
 
-      const data = await response.json()
-
-      if (!response.ok) {
-        return {
-          statusCode: response.status,
-          error: data.detail || 'Произошла ошибка',
-          data: data
-        }
-      }
-
+      // Map HTTP client response to ApiResponse format
       return {
-        statusCode: response.status,
-        data: data
+        statusCode: response.statusCode,
+        error: response.error,
+        data: response.data,
       }
     } catch (error) {
-      console.error('API Request Error:', error)
+      // This should rarely happen due to HTTP client error handling,
+      // but provide a fallback just in case
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      console.error('[API Client] Unexpected error (should be handled by HTTP client):', {
+        endpoint,
+        error: errorMessage,
+      })
+      
       return {
         statusCode: 500,
         error: 'Ошибка сети или сервера'
@@ -297,5 +310,5 @@ class ApiClient {
 }
 
 // Export singleton instance
-export const apiClient = new ApiClient(API_BASE_URL)
+export const apiClient = new ApiClient()
 export default apiClient
